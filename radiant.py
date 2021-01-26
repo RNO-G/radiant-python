@@ -13,7 +13,7 @@ class RADIANT:
 		tx[2] = addr & 0xFF
 		tx[3] = 3
 		toWrite = cobs.encode(tx)
-		print(toWrite)
+		# print(toWrite)
 		self.dev.write(toWrite)
 		self.dev.write(b'\x00')
 		# expect 7 bytes back + 1 overhead + 1 framing
