@@ -16,7 +16,9 @@ class RADIANT:
 			'DNA' : 0x2C,
 			'SPIBASE' : 0x30,
 			'BM_ID' : 0x400000,
-			'BM_DATEVERSION' : 0x400004 }
+			'BM_DATEVERSION' : 0x400004,
+			'BM_CONTROL' :     0x40000C
+			}
 
 	class DateVersion:
 		def __init__(self, val):
@@ -34,7 +36,11 @@ class RADIANT:
 			val = (self.year << 25) | (self.mon << 21) | (self.day << 16) | (self.major<<12) | (self.minor<<8) | self.rev
 			return f'RADIANT.DateVersion({val})'
 		
-
+	class BurstType(Enum):
+		BYTE = 0x000
+		WORD = 0x100
+		DWORD = 0x200
+                
 	class DeviceType(Enum):
 		SERIAL = 'Serial'		
 		
@@ -46,6 +52,7 @@ class RADIANT:
 		self.cpl = RadCPLD(self, self.map['LJTAG'], self.cpldJtag)
 		self.cpr = RadCPLD(self, self.map['RJTAG'], self.cpldJtag)		
 
+        # these almost should be considered internal: to burst write/read use the burstread/burstwrite functions
 	def multiread(self, addr, num):
 		if addr & 0x400000:
 			print("RADIANT board manager does not support multireads")
@@ -58,6 +65,41 @@ class RADIANT:
 			return None
 		return self.dev.multiwrite(addr, num)
 
+	# Convenience function to enable bursts in JTAG, where we already know reset register
+	def setJtagBurstType(self, type=BurstType.BYTE):
+		val = 0x80000000 | type
+		self.write(self.map['RESET'], val)
+
+	def setBurstType(self, type=BurstType.BYTE):
+		val = self.read(self.map['RESET'])
+		val = 0xFFFFFCFF | type
+		self.write(self.map['RESET'], val)
+
+	def burstWrite(self, addr, data, burstType=BurstType.BYTE, inBurst=False, endBurst=True):
+		# Note, add stupid length check here
+		if not inBurst:
+			self.write(self.map['BM_CONTROL'], 8)
+		resp = None
+		if burstType is self.BurstType.BYTE:
+			# easy
+			resp = self.multiwrite(addr, data, len(data))
+		elif burstType is self.BurstType.WORD:
+			tx = bytearray(0)
+			for w in data:
+				tx.append(w & 0xFF)
+				tx.append((w>>8) & 0xFF)
+			resp = self.multiwrite(addr, tx, len(tx))
+		elif burstType is self.BurstType.DWORD:
+			tx = bytearray(0)
+			for w in data:
+				tx.append(w & 0xFF)
+				tx.append((w>>8) & 0xFF)
+				tx.append((w>>16) & 0xFF)
+				tx.append((w>>24) & 0xFF)
+			resp = self.multiwrite(addr, tx, len(tx))
+		if endBurst:
+			self.write(self.map['BM_CONTROL'], 0)
+			
 	def read(self, addr):
 		return self.dev.read(addr)
 	
