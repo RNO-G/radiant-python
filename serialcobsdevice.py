@@ -27,7 +27,7 @@ class SerialCOBSDevice:
 
 	def write(self, addr, val):
 		tx = bytearray(7)
-		tx[0] = (addr & 0x3F0000)>>16
+		tx[0] = (addr & 0x7F0000)>>16
 		tx[0] |= 0x80
 		tx[1] = (addr & 0xFF00)>>8
 		tx[2] = addr & 0xFF
