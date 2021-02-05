@@ -41,7 +41,7 @@ class RadCPLD:
 
 	# program in a CPLD bitstream
 	def configure(self, fn):
-		self.enable(True)
+		self.dev.setJtagBurstType(self.dev.BurstType.BYTE)		
 		
 		f = self.getbitstream(fn)
 		if f is None:
@@ -66,8 +66,15 @@ class RadCPLD:
 		# Go to SDR (using magic shift-IR + self.sir = shift-DR)
 		self.dev.write(self.addr, self.__sir)
 		# clock a lot of FFs to ensure we're starting off OK
-		for i in range(388):
-			self.dev.write(self.addr, 0x670000FF)
+		self.dev.write(0x670000FF)
+		# now burst in 97 at a time.		
+		burst = bytearray(b'\xFF')*97
+		self.dev.burstWrite(self.addr, burst, endBurst=False)
+		self.dev.burstWrite(self.addr, burst, inBurst=True, endBurst=False)
+		self.dev.burstWrite(self.addr, burst, inBurst=True, endBurst=False)
+		self.dev.burstWrite(self.addr, burst, inBurst=True, endBurst=False)
+#		for i in range(388):
+#			self.dev.write(self.addr, 0x670000FF)
 		# get data from bitstream
 		# run 1 ahead so that we can detect if we're
 		# the last value to be clocked in
@@ -76,11 +83,21 @@ class RadCPLD:
 		val = f.read(1)
 		# next value
 		nv = f.read(1)
+		# burst list
+		b = bytearray(0)
 		while len(nv) > 0:
-			self.dev.write(self.addr, 0x67000000 | ord(val))
+			b.append(val)
 			val = nv
 			nv = f.read(1)
-		# now we're on the last
+			lastXfer = (len(nv) == 0)
+			if len(b) == 128 or lastXfer:
+				self.dev.burstWrite(self.addr, b, inBurst=True, endBurst=lastXfer)
+				b = bytearray(0)					
+			# self.dev.write(self.addr, 0x67000000 | ord(val))
+			# val = nv
+			# nv = f.read(1)
+			
+		# now we're on the last, and we're out of burst mode.
 		self.dev.write(self.addr, 0x67008000 | ord(val))
 		# runtest for a while
 		self.dev.write(self.addr, self.__sirrti)
@@ -89,7 +106,7 @@ class RadCPLD:
 		# and disable ISC
 		self.__isc_disable(False)
 		f.close()
-		
+		# also kicks us out of burst mode
 		self.enable(False)
 
 	# Useful for checking if the file you've got is
