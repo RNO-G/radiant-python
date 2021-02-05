@@ -46,6 +46,18 @@ class RADIANT:
 		self.cpl = RadCPLD(self, self.map['LJTAG'], self.cpldJtag)
 		self.cpr = RadCPLD(self, self.map['RJTAG'], self.cpldJtag)		
 
+	def multiread(self, addr, num):
+		if addr & 0x400000:
+			print("RADIANT board manager does not support multireads")
+			return None
+		return self.dev.multiread(addr, num)
+
+	def multiwrite(self, addr, num):
+		if addr & 0x400000:
+			print("RADIANT board manager does not support multiwrites")
+			return None
+		return self.dev.multiwrite(addr, num)
+
 	def read(self, addr):
 		return self.dev.read(addr)
 	
