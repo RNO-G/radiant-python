@@ -370,7 +370,9 @@ class LAB4_Controller:
             while not user[31]:
                 user = bf(self.read(self.map['L4REG']))
 
-        def default(self, lab4=self.labAll):
+        def default(self, lab4=None):
+            if lab4 is None:
+                lab4 = self.labAll
             '''DAC default values'''
             self.l4reg(lab4, 0, 1024)      #PCLK-1=0 : Vboot 
             self.l4reg(lab4, 1, 1024)      #PCLK-1=1 : Vbsx
