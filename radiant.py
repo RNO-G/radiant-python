@@ -3,6 +3,8 @@ from enum import Enum
 from radcpld import RadCPLD
 from lab4_controller import LAB4_Controller
 
+from radcalib import RadCalib
+
 class RADIANT:
 	##### GLOBAL CRAP
 	
@@ -60,7 +62,8 @@ class RADIANT:
 		self.cpl = RadCPLD(self, self.map['LJTAG'], self.cpldJtag)
 		self.cpr = RadCPLD(self, self.map['RJTAG'], self.cpldJtag)		
 		# LAB4 Controller.
-		self.labc = LAB4_Controller(self, self.map['LAB4_CTRL_BASE'], numLabs=24, labAll=31, syncOffset=560, labMontimingMapFn=self.radiantLabMontimingMap)
+		# Dummy calibration for now. Need to redo the calibration core anyway.
+		self.labc = LAB4_Controller(self, self.map['LAB4_CTRL_BASE'], calib=RadCalib(), numLabs=24, labAll=31, syncOffset=560, labMontimingMapFn=self.radiantLabMontimingMap)
 
         # these almost should be considered internal: to burst write/read use the burstread/burstwrite functions
 	def multiread(self, addr, num):
@@ -84,7 +87,26 @@ class RADIANT:
 		val = self.read(self.map['RESET'])
 		val = 0xFFFFFCFF | type.value
 		self.write(self.map['RESET'], val)
-
+	
+	def burstRead(self, addr, len, burstType=BurstType.BYTE, inBurst=False, endBurst=True):
+		if not inBurst:
+			self.write(self.map['BM_CONTROL'], 8)
+		resp = None
+		if burstType is self.BurstType.BYTE:
+			# easy
+			resp = self.multiread(addr, len)
+		elif burstType is self.BurstType.WORD:
+			# handle later. we need to unpack the return data
+			# 2 words at a time
+			pass
+		elif burstType is self.BurstType.DWORD:
+			# handle later. we need to unpack the return data
+			# 4 words at a time
+			pass
+		if endBurst:
+			self.write(self.map['BM_CONTROL'], 0)	
+		return resp
+	
 	def burstWrite(self, addr, data, burstType=BurstType.BYTE, inBurst=False, endBurst=True):
 		# Note, add stupid length check here
 		if not inBurst:
@@ -143,7 +165,9 @@ class RADIANT:
 	def dna(self):
 		self.write(self.map['DNA'], 0x80000000)
 		dnaval=0
+		# now burst read from the DNA address 57 times
+		r = self.burstRead(self.map['DNA'], 57)		
 		for i in range(57):
-			val=self.read(self.map['DNA'])
+			val = r[i] & 0x1
 			dnaval = (dnaval << 1) | val
 		return dnaval
