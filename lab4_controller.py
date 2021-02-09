@@ -172,7 +172,7 @@ class LAB4_Controller:
         def scan_width(self, scanNum, trials=1):
             self.write(self.map['PHASEARG'], scanNum)
             res = 0
-            for i in xrange(trials):
+            for i in range(trials):
                 self.write(self.map['PHASECMD'], 0x02)
                 val = self.read(self.map['PHASECMD'])
                 while val != 0x00:
@@ -343,7 +343,7 @@ class LAB4_Controller:
                 else:
                     print("Using cal file for Vtrimfb's")
                     if lab4 == self.labAll:
-                        for i in xrange(self.numLabs):
+                        for i in range(self.numLabs):
                             self.l4reg(i,11,calFbs[i])
                         else:
                             self.l4reg(lab4, 11, calFbs[lab4])                             
@@ -384,7 +384,7 @@ class LAB4_Controller:
             else:
                 print("Using cal file for VadjN's")
                 if lab4 == self.labAll:
-                    for i in xrange(self.numLabs):
+                    for i in range(self.numLabs):
                         self.l4reg(i,3,calNs[i])
                     else:
                         self.l4reg(lab4, 3, calNs[lab4])
@@ -396,7 +396,7 @@ class LAB4_Controller:
             else:
                 print("Using cal file for VadjP's")
                 if lab4 == self.labAll:
-                    for i in xrange(self.numLabs):
+                    for i in range(self.numLabs):
                         self.l4reg(i,8,calPs[i])
                     else:
                         self.l4reg(lab4, 8, calPs[lab4])
@@ -417,7 +417,7 @@ class LAB4_Controller:
             else:
                 print("Using cal file for Vtrimfb's")
                 if lab4 == self.labAll:
-                    for i in xrange(self.numLabs):
+                    for i in range(self.numLabs):
                         self.l4reg(i,11,calFbs[i])
                     else:
                         self.l4reg(lab4, 11, calFbs[lab4])
