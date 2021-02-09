@@ -42,9 +42,10 @@ class LAB4_Controller:
                 'WR_STRB'                   : 7,
                 }
                 
-        def __init__(self, dev, base, numLabs=12, labAll=15, syncOffset=0, labMontimingMapFn=None):
+        def __init__(self, dev, base, calibrations, numLabs=12, labAll=15, syncOffset=0, labMontimingMapFn=None):
             self.dev = dev
             self.base = base
+            self.calibrations = calibrations
             self.numLabs = numLabs
             self.labAll = labAll
             self.pb = picoblaze.PicoBlaze(self, self.map['pb'])
@@ -336,7 +337,7 @@ class LAB4_Controller:
                 '''turn off internal Vadjn buffer bias'''
                 self.l4reg(lab4, 2, 0)      #PCLK-1=2 : VanN
                 
-                calFbs = surf_calibrations.read_vtrimfb(self.dev.dna())
+                calFbs = calibrations.read_vtrimfb(self.dev.dna())
                 if calFbs == None:
                     print("Using default Vtrimfb of 1300.")
                     self.l4reg(lab4, 11, 1300)
@@ -377,7 +378,7 @@ class LAB4_Controller:
             self.l4reg(lab4, 0, 1024)      #PCLK-1=0 : Vboot 
             self.l4reg(lab4, 1, 1024)      #PCLK-1=1 : Vbsx
             self.l4reg(lab4, 2, 1024)      #PCLK-1=2 : VanN
-            calNs = surf_calibrations.read_vadjn(self.dev.dna())
+            calNs = calibrations.read_vadjn(self.dev.dna())
             if calNs == None:
                 print("Using default VadjN of 1671.")
                 self.l4reg(lab4, 3, 1671)
@@ -389,7 +390,7 @@ class LAB4_Controller:
                     else:
                         self.l4reg(lab4, 3, calNs[lab4])
 
-            calPs = surf_calibrations.read_vadjp(self.dev.dna())
+            calPs = calibrations.read_vadjp(self.dev.dna())
             if calPs == None:
                 print("Using default VadjP of 2700.")
                 self.l4reg(lab4, 8, 2700)
@@ -410,7 +411,7 @@ class LAB4_Controller:
             #self.l4reg(lab4, 10, 2350)     #PCLK-1=10 : ISEL (gives ~5 us long ramp)
             self.l4reg(lab4, 10, 2580)     #PCLK-1=10 : ISEL (gives ~10 us long ramp)
             
-            calFbs = surf_calibrations.read_vtrimfb(self.dev.dna())
+            calFbs = calibrations.read_vtrimfb(self.dev.dna())
             if calFbs == None:
                 print("Using default Vtrimfb of 1350.")
                 self.l4reg(lab4, 11, 1350)
