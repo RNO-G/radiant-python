@@ -1,9 +1,11 @@
 from serialcobsdevice import SerialCOBSDevice
 from enum import Enum
 from radcpld import RadCPLD
-
+from lab4_controller import LAB4_Controller
 
 class RADIANT:
+	##### GLOBAL CRAP
+	
 	map = { 'FPGA_ID' : 0x0,
 			'FPGA_DATEVERSION' : 0x4,
 			'CPLD_CONTROL' : 0x8,
@@ -15,6 +17,7 @@ class RADIANT:
 			'SPISS' : 0x24,
 			'DNA' : 0x2C,
 			'SPIBASE' : 0x30,
+			'LAB4_CTRL_BASE' : 0x10000,
 			'BM_ID' : 0x400000,
 			'BM_DATEVERSION' : 0x400004,
 			'BM_CONTROL' :     0x40000C
@@ -43,6 +46,11 @@ class RADIANT:
                 
 	class DeviceType(Enum):
 		SERIAL = 'Serial'		
+	
+	#### ACTUAL INITIALIZATION
+	# dumb map function
+	def radiantLabMontimingMap(lab):
+		return int(lab/12)
 		
 	def __init__(self, port, type=DeviceType.SERIAL):
 		if type == self.DeviceType.SERIAL:
@@ -51,6 +59,8 @@ class RADIANT:
 		# create the CPLDs. These are really only for JTAG configuration.
 		self.cpl = RadCPLD(self, self.map['LJTAG'], self.cpldJtag)
 		self.cpr = RadCPLD(self, self.map['RJTAG'], self.cpldJtag)		
+		# LAB4 Controller.
+		self.labc = LAB4_Controller(self, self.map['LAB4_CTRL_BASE'], numLabs=24, labAll=31, syncOffset=560, labMontimingMapFn=self.radiantLabMontimingMap)
 
         # these almost should be considered internal: to burst write/read use the burstread/burstwrite functions
 	def multiread(self, addr, num):
@@ -59,20 +69,20 @@ class RADIANT:
 			return None
 		return self.dev.multiread(addr, num)
 
-	def multiwrite(self, addr, num):
+	def multiwrite(self, addr, data):
 		if addr & 0x400000:
 			print("RADIANT board manager does not support multiwrites")
 			return None
-		return self.dev.multiwrite(addr, num)
+		return self.dev.multiwrite(addr, data)
 
 	# Convenience function to enable bursts in JTAG, where we already know reset register
 	def setJtagBurstType(self, type=BurstType.BYTE):
-		val = 0x80000000 | type
+		val = 0x80000000 | type.value
 		self.write(self.map['RESET'], val)
 
 	def setBurstType(self, type=BurstType.BYTE):
 		val = self.read(self.map['RESET'])
-		val = 0xFFFFFCFF | type
+		val = 0xFFFFFCFF | type.value
 		self.write(self.map['RESET'], val)
 
 	def burstWrite(self, addr, data, burstType=BurstType.BYTE, inBurst=False, endBurst=True):
@@ -82,13 +92,13 @@ class RADIANT:
 		resp = None
 		if burstType is self.BurstType.BYTE:
 			# easy
-			resp = self.multiwrite(addr, data, len(data))
+			resp = self.multiwrite(addr, data)
 		elif burstType is self.BurstType.WORD:
 			tx = bytearray(0)
 			for w in data:
 				tx.append(w & 0xFF)
 				tx.append((w>>8) & 0xFF)
-			resp = self.multiwrite(addr, tx, len(tx))
+			resp = self.multiwrite(addr, tx)
 		elif burstType is self.BurstType.DWORD:
 			tx = bytearray(0)
 			for w in data:
@@ -96,7 +106,7 @@ class RADIANT:
 				tx.append((w>>8) & 0xFF)
 				tx.append((w>>16) & 0xFF)
 				tx.append((w>>24) & 0xFF)
-			resp = self.multiwrite(addr, tx, len(tx))
+			resp = self.multiwrite(addr, tx)
 		if endBurst:
 			self.write(self.map['BM_CONTROL'], 0)
 			
