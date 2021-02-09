@@ -16,9 +16,14 @@ class bf(object):
         self._d = int(value)
     
     def __getitem__(self, index):
+        if type(index) is slice:
+            return self.__getslice__(index.start, index.stop)
         return (self._d >> index) & 1
     
     def __setitem__(self,index,value):
+        if type(index) is slice:
+            self.__setslice__(index.start, index.stop, value)
+            return
         value = (value & 1)<<index
         mask = (1)<<index
         self._d = (self._d & ~mask) | value
