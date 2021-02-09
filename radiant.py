@@ -134,8 +134,16 @@ class RADIANT:
 			
 		fid = str4(self.read(self.map['FPGA_ID']))
 		fdv = self.DateVersion(self.read(self.map['FPGA_DATEVERSION']))
-		print("FPGA:", fid, fdv)
+		dna = self.dna()
+		print("FPGA:", fid, fdv, hex(dna))
 		bid = str4(self.read(self.map['BM_ID']))
 		bver = self.DateVersion(self.read(self.map['BM_DATEVERSION']))
 		print("Board Manager:", bid, bver)
 			
+	def dna(self):
+		self.write(self.map['DNA'], 0x80000000)
+		dnaval=0
+		for i in range(57):
+			val=self.read(self.map['DNA'])
+			dnaval = (dnaval << 1) | val
+		return dnaval
