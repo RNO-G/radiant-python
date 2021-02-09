@@ -337,7 +337,7 @@ class LAB4_Controller:
                 '''turn off internal Vadjn buffer bias'''
                 self.l4reg(lab4, 2, 0)      #PCLK-1=2 : VanN
                 
-                calFbs = calibrations.read_vtrimfb(self.dev.dna())
+                calFbs = self.calibrations.read_vtrimfb(self.dev.dna())
                 if calFbs == None:
                     print("Using default Vtrimfb of 1300.")
                     self.l4reg(lab4, 11, 1300)
@@ -378,7 +378,7 @@ class LAB4_Controller:
             self.l4reg(lab4, 0, 1024)      #PCLK-1=0 : Vboot 
             self.l4reg(lab4, 1, 1024)      #PCLK-1=1 : Vbsx
             self.l4reg(lab4, 2, 1024)      #PCLK-1=2 : VanN
-            calNs = calibrations.read_vadjn(self.dev.dna())
+            calNs = self.calibrations.read_vadjn(self.dev.dna())
             if calNs == None:
                 print("Using default VadjN of 1671.")
                 self.l4reg(lab4, 3, 1671)
@@ -390,7 +390,7 @@ class LAB4_Controller:
                     else:
                         self.l4reg(lab4, 3, calNs[lab4])
 
-            calPs = calibrations.read_vadjp(self.dev.dna())
+            calPs = self.calibrations.read_vadjp(self.dev.dna())
             if calPs == None:
                 print("Using default VadjP of 2700.")
                 self.l4reg(lab4, 8, 2700)
@@ -411,7 +411,7 @@ class LAB4_Controller:
             #self.l4reg(lab4, 10, 2350)     #PCLK-1=10 : ISEL (gives ~5 us long ramp)
             self.l4reg(lab4, 10, 2580)     #PCLK-1=10 : ISEL (gives ~10 us long ramp)
             
-            calFbs = calibrations.read_vtrimfb(self.dev.dna())
+            calFbs = self.calibrations.read_vtrimfb(self.dev.dna())
             if calFbs == None:
                 print("Using default Vtrimfb of 1350.")
                 self.l4reg(lab4, 11, 1350)
