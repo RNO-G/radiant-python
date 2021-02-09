@@ -42,11 +42,11 @@ class LAB4_Controller:
                 'WR_STRB'                   : 7,
                 }
                 
-        def __init__(self, dev, base, numLabs=12, labAllMagic, syncOffset=0, labMontimingMapFn=None):
+        def __init__(self, dev, base, numLabs=12, labAll=15, syncOffset=0, labMontimingMapFn=None):
             self.dev = dev
             self.base = base
             self.numLabs = numLabs
-            self.labAll = labAllMagic
+            self.labAll = labAll
             self.pb = picoblaze.PicoBlaze(self, self.map['pb'])
             self.phasepb = picoblaze.PicoBlaze(self,self.map['PHASEPB'])
 
