@@ -3,6 +3,7 @@ import picoblaze
 
 # Parameterized LAB4 controller (hopefully...)
 class LAB4_Controller:
+        
         map = { 'CONTROL'			: 0x00000,
                 'SHIFTPRESCALE'		        : 0x00004,
 		'RDOUTPRESCALE'		        : 0x00008,
@@ -20,6 +21,18 @@ class LAB4_Controller:
                 'READOUTEMPTY'                  : 0x0005C,
                 'pb'				: 0x0007C,
                 }
+
+        # default (SURF) config. Override these as needed.
+        # montimingSelectFn doesn't actually need to return anything, it's done here so I don't need to check if it's not None
+        defconfig = { 'numLabs'    : 12,           # number of LAB4s
+                      'labAll'     : 15,           # magic # to use for selecting all LABs
+                      'syncOffset' : 0,            # how far to go back in automatch PHAB
+                      'invertSync' : False,
+                      'labMontimingMapFn' : lambda lab: lab,  # function to use for converting LAB# to MONTIMING#
+                      'montimingSelectFn' : lambda lab: lab,  # function to call for selecting MONTIMING for LAB
+                      'regclrAll'         : 0xFFF  # value to write to REGCLR to clear all LABs
+                      }
+                      
         amon = { 'Vbs'                      : 0,
                  'Vbias'                    : 1,
                  'Vbias2'                   : 2,
@@ -41,27 +54,37 @@ class LAB4_Controller:
                 'SSPin'                     : 6,
                 'WR_STRB'                   : 7,
                 }
-                
-        def __init__(self, dev, base, calibrations, numLabs=12, labAll=15, syncOffset=0, labMontimingMapFn=None):
+
+        # the kwargs list was long: see above for the list of all config options.
+        def __init__(self, dev, base, calibrations, **kwargs):
+            
+            #numLabs=12, labAll=15, syncOffset=0, labMontimingMapFn=None, regclrAll=0xFFF):
             self.dev = dev
             self.base = base
             self.calibrations = calibrations
-            self.numLabs = numLabs
-            self.labAll = labAll
+            # defaulty-defaulty
+            for item in self.defconfig:
+                if not item in kwargs:
+                    kwargs[item] = self.defconfig[item]
+            # now all of these will complete
+            self.numLabs = kwargs['numLabs']
+            self.labAll = kwargs['labAll']
+            self.syncOffset = kwargs['syncOffset']
+            self.invertSync = kwargs['invertSync']
+            self.labMontimingMapFn = kwargs['labMontimingMapFn']
+            self.montimingSelectFn = kwargs['montimingSelectFn']
+            self.regclrAll = kwargs['regclrAll']
+                
             self.pb = picoblaze.PicoBlaze(self, self.map['pb'])
             self.phasepb = picoblaze.PicoBlaze(self,self.map['PHASEPB'])
 
-            # The phase shift clock is equal to the phase clock (half the sysclk)
-            # so 80 ns. VCO is 40x sysclk, or 1 GHz, and there are 56 taps/VCO
-            # clock (so 56 taps/ns). So we need to move back 560 taps for the
-            # RADIANT (where the MONTIMING is 10 ns delayed due to CPLD).
-            self.syncOffset = syncOffset
-            
-            # this is a map of LAB->MONTIMING. On the SURF5 we don't need this.
-            # On the RADIANT it's just a modulo. The phase scanner only supports
-            # up to 12 inputs.
-            self.labMontimingMapFn = labMontimingMapFn
-            
+        # We do match=1 here because we find the first WR_STRB edge
+        # after SYNC's rising edge, which means it's latching the WR
+        # when SYNC=1. syncOffset allows for compensating a
+        # SYNC (internal) <-> MONTIMING (external) mismatch.
+        # invertSync allows for dealing with WR mismatches caused
+        # by shift delays (for instance, shoving WR forward 2 sysclks
+        # to compensate for an external delay)
         def automatch_phab(self, lab, match=1):
             labs = []
             if lab == self.labAll:
@@ -72,21 +95,22 @@ class LAB4_Controller:
             sync_edge = self.scan_edge(12, 1)
             print("Found sync edge: %d" % sync_edge)
             for i in labs:
-                # If we need to map ourselves, do it now.
-                if not self.labMontimingMapFn:
-                    scanNum = i
-                else:
-                    scanNum = self.labMontimingMapFn(i)
+                self.montimingSelectFn(i)
+                scanNum = self.labMontimingMapFn(i)
+
                 # Find our PHAB sampling point.
-                self.set_tmon(scanNum, self.tmon['WR_STRB'])
+                self.set_tmon(lab, self.tmon['WR_STRB'])
                 wr_edge = self.scan_edge(scanNum, 1, sync_edge)
                 print("Found WR_STRB edge on LAB%d: %d" % (i, wr_edge))
                 wr_edge = wr_edge - syncOffset
                 if wr_edge < 0:
                     wr_edge = wr_edge + 56*80
                 print("Adjusted WR_STRB edge on LAB%d: %d" % (i, wr_edge))
-                self.set_tmon(scanNum, self.tmon['PHAB'])
+                self.set_tmon(lab, self.tmon['PHAB'])
                 phab = self.scan_value(scanNum, wr_edge) & 0x01
+                if self.invertSync:
+                    phab = phab ^ 0x01
+                    
                 while phab != match:
                     print("LAB%d wrong PHAB phase, resetting." % i)
                     self.clr_phase(i)
@@ -94,10 +118,9 @@ class LAB4_Controller:
 
         def autotune_vadjp(self, lab, initial=2700):
                 self.set_tmon(lab, self.tmon['SSPin'])
-                if not self.labMontimingMapFn:
-                    scanNum = i
-                else:
-                    scanNum = self.labMontimingMapFn(i)
+                self.montimingSelectFn(lab)
+                scanNum = self.labMontimingMapFn(lab)
+                
                 rising=self.scan_edge(scanNum, 1, 0)
                 falling=self.scan_edge(scanNum, 0, rising+100)
                 width=falling-rising
@@ -138,10 +161,9 @@ class LAB4_Controller:
                 
         def autotune_vadjn(self, lab):
             self.set_tmon(lab, self.tmon['A1'])
-            if not self.labMontimingMapFn:
-                scanNum = i
-            else:
-                scanNum = self.labMontimingMapFn(i)
+            self.montimingSelectFn(lab)
+            scanNum = self.labMontimingMapFn(lab)
+
             vadjn = 1640
             delta = 20            
             self.l4reg(lab, 3, vadjn)            
@@ -236,7 +258,7 @@ class LAB4_Controller:
         def force_trigger(self):
             self.write(self.map['TRIGGER'], 2)
         '''
-        clear all registers on LAB
+        clear all registers on LAB.
         '''
         def reg_clr(self):
             ctrl = bf(self.read(self.map['CONTROL']))
@@ -313,7 +335,7 @@ class LAB4_Controller:
             return self.dev.read(addr + self.base)
     
         def write(self, addr, value):
-            self.dev.write(addr + self.base, value)
+            self.dev.write(addr + self.base, int(value))
 
         def check_fifo(self, check_fifos=False):
             rdout = bf(self.read(self.map['READOUT']))
@@ -366,8 +388,8 @@ class LAB4_Controller:
             user[27:24] = lab
             user[31] = 1
             if verbose:
-                print("Going to write 0x%X" % user) 
-                self.write(self.map['L4REG'], int(user))
+                print("Going to write 0x%X" % int(user)) 
+            self.write(self.map['L4REG'], int(user))
             while not user[31]:
                 user = bf(self.read(self.map['L4REG']))
 
