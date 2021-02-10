@@ -22,7 +22,8 @@ class RADIANT:
 			'LAB4_CTRL_BASE' : 0x10000,
 			'BM_ID' : 0x400000,
 			'BM_DATEVERSION' : 0x400004,
-			'BM_CONTROL' :     0x40000C
+			'BM_CONTROL' :     0x40000C,
+			'BM_PEDESTAL':     0x4000E0			
 			}
 
 	class DateVersion:
@@ -62,8 +63,24 @@ class RADIANT:
 		self.cpl = RadCPLD(self, self.map['LJTAG'], self.cpldJtag)
 		self.cpr = RadCPLD(self, self.map['RJTAG'], self.cpldJtag)		
 		# LAB4 Controller.
-		# Dummy calibration for now. Need to redo the calibration core anyway.
-		self.labc = LAB4_Controller(self, self.map['LAB4_CTRL_BASE'], calib=RadCalib(), numLabs=24, labAll=31, syncOffset=560, labMontimingMapFn=self.radiantLabMontimingMap)
+		# RADIANT config.
+		# 24 channels
+		# Use "31" (0x1F) to select all LABs (b/c need 5 bits to store 24)
+		# Back up 560 taps from WR_STRB to check PHAB against SYNC (b/c MONTIMING delayed by 10 ns)
+		# Invert SYNC when checking PHAB (b/c our WRs are nominally delayed 15 ns: we further delay 20 ns so we're 1 phase behind)
+		# MONTIMINGs are muxed into 2, with 0-11 getting 0 and 12-23 getting 1
+		# Call monSelect when switching MONTIMING to configure the CPLD properly to mux it in
+		# Only 1 REGCLR, so just write 0x1
+		config = { 'numLabs' : 24,
+			   'labAll' : 31,
+			   'syncOffset' : 560,
+			   'invertSync' : True,
+			   'labMontimingMapFn' : lambda lab: int(lab/12),
+			   'montimingSelectFn' : self.monSelect,
+			   'regclrAll' : 0x1 }
+			
+		# Dummy calibration for now. Need to redo the calibration core anyway.		
+		self.labc = LAB4_Controller(self, self.map['LAB4_CTRL_BASE'], RadCalib(), **config)
 
         # these almost should be considered internal: to burst write/read use the burstread/burstwrite functions
 	def multiread(self, addr, num):
@@ -145,6 +162,19 @@ class RADIANT:
 		if enable == True:
 			val |= 0x80000000
 		self.write(self.map['RESET'], val)
+
+	def monSelect(self, lab):
+		# just do both to the same value, whatever
+		val = lab % 12
+		# set bit [24] and bit [8]
+		# then write val to [23:16] and [7:0]
+		toWrite = (0x1000100) | (val << 16) | (val)
+		self.write(self.map['CPLD_CONTROL'], toWrite)
+		
+	def pedestal(self, val):
+		# just set both to same value
+		self.write(self.map['BM_PEDESTAL'], val)
+		self.write(self.map['BM_PEDESTAL']+4, val)
 		
 	def identify(self):
 		def str4(num):
