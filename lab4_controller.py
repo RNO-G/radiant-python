@@ -102,7 +102,7 @@ class LAB4_Controller:
                 self.set_tmon(lab, self.tmon['WR_STRB'])
                 wr_edge = self.scan_edge(scanNum, 1, sync_edge)
                 print("Found WR_STRB edge on LAB%d: %d" % (i, wr_edge))
-                wr_edge = wr_edge - syncOffset
+                wr_edge = wr_edge - self.syncOffset
                 if wr_edge < 0:
                     wr_edge = wr_edge + 56*80
                 print("Adjusted WR_STRB edge on LAB%d: %d" % (i, wr_edge))
