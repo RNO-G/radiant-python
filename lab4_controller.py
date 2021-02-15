@@ -78,6 +78,33 @@ class LAB4_Controller:
             self.pb = picoblaze.PicoBlaze(self, self.map['pb'])
             self.phasepb = picoblaze.PicoBlaze(self,self.map['PHASEPB'])
 
+        # We use python properties for anything that can be both
+        # written and read back. So that's like, internal stuff to
+        # the LAB controller, not anything in the LAB4D (no readback).
+        @property
+        def shiftprescale(self):
+            return self.read(self.map['SHIFTPRESCALE'])
+        
+        @shiftprescale.setter
+        def shiftprescale(self, scale):
+            self.write(self.map['SHIFTPRESCALE'], scale)
+        
+        @property
+        def rdoutprescale(self):
+            return self.read(self.map['RDOUTPRESCALE'])
+        
+        @rdoutprescale.setter
+        def rdoutprescale(self, scale):
+            self.write(self.map['RDOUTPRESCALE'], scale)
+
+        @property
+        def readoutempty(self):
+            return self.read(self.map['READOUTEMPTY'])
+        
+        @readoutempty.setter
+        def readoutempty(self, threshold):
+            self.write(self.map['READOUTEMPTY'], threshold)
+            
         # We do match=1 here because we find the first WR_STRB edge
         # after SYNC's rising edge, which means it's latching the WR
         # when SYNC=1. syncOffset allows for compensating a
@@ -348,9 +375,6 @@ class LAB4_Controller:
             else:
                 return rdout[3]
 
-        def set_fifo_empty(self, threshold):
-            self.write(self.map['READOUTEMPTY'], threshold)
-                
         def dll(self, lab4, mode=False, sstoutfb=104):
             '''enable/disable dll by setting VanN level'''
             if mode:
@@ -429,9 +453,9 @@ class LAB4_Controller:
             self.l4reg(lab4, 6, 950)       #PCLK-1=6 : Vbias2 
             self.l4reg(lab4, 7, 1024)      #PCLK-1=7 : CMPbias 
             self.l4reg(lab4, 9, 1000)      #PCLK-1=9 : Qbias 
-            #self.l4reg(lab4, 10, 2780)     #PCLK-1=10 : ISEL (gives ~20 us long ramp)
+            self.l4reg(lab4, 10, 2780)     #PCLK-1=10 : ISEL (gives ~20 us long ramp)
             #self.l4reg(lab4, 10, 2350)     #PCLK-1=10 : ISEL (gives ~5 us long ramp)
-            self.l4reg(lab4, 10, 2580)     #PCLK-1=10 : ISEL (gives ~10 us long ramp)
+            #self.l4reg(lab4, 10, 2580)     #PCLK-1=10 : ISEL (gives ~10 us long ramp)
             
             calFbs = self.calibrations.read_vtrimfb(self.dev.dna())
             if calFbs == None:
