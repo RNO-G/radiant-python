@@ -3,7 +3,7 @@ import picoblaze
 
 # Parameterized LAB4 controller (hopefully...)
 class LAB4_Controller:
-        
+ 
         map = { 'CONTROL'			: 0x00000,
                 'SHIFTPRESCALE'		        : 0x00004,
 		'RDOUTPRESCALE'		        : 0x00008,
@@ -142,6 +142,8 @@ class LAB4_Controller:
                     print("LAB%d wrong PHAB phase, resetting." % i)
                     self.clr_phase(i)
                     phab = self.scan_value(scanNum, wr_edge) & 0x01
+                    if self.invertSync:
+                        phab = phab ^ 0x01
 
         def autotune_vadjp(self, lab, initial=2700):
                 self.set_tmon(lab, self.tmon['SSPin'])
