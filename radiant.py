@@ -2,8 +2,10 @@ from serialcobsdevice import SerialCOBSDevice
 from enum import Enum
 from radcpld import RadCPLD
 from lab4_controller import LAB4_Controller
+from lab4_calram import LAB4_Calram
 
 from radcalib import RadCalib
+from radsig import RadSig
 
 class RADIANT:
 	##### GLOBAL CRAP
@@ -19,10 +21,14 @@ class RADIANT:
 			'SPISS' : 0x24,
 			'DNA' : 0x2C,
 			'SPIBASE' : 0x30,
-			'LAB4_CTRL_BASE' : 0x10000,
+			'LAB4_CTRL_BASE' :   0x10000,
+			'LAB4_CALRAM_BASE' : 0x80000,
 			'BM_ID' : 0x400000,
 			'BM_DATEVERSION' : 0x400004,
 			'BM_CONTROL' :     0x40000C,
+			'BM_SPIOUTLSB' :   0x400024,
+			'BM_SPIOUTMSB' :   0x400028,
+			'BM_I2CGPIO_BASE': 0x400040,
 			'BM_PEDESTAL':     0x4000E0			
 			}
 
@@ -81,6 +87,12 @@ class RADIANT:
 			
 		# Dummy calibration for now. Need to redo the calibration core anyway.		
 		self.labc = LAB4_Controller(self, self.map['LAB4_CTRL_BASE'], RadCalib(), **config)
+		
+		# Calram
+		self.calram = LAB4_Calram(self, self.map['LAB4_CALRAM_BASE'], self.labc, numLabs=24, labAllMagic=31)
+		
+		# RadSig
+		self.radsig = RadSig(self)
 
         # these almost should be considered internal: to burst write/read use the burstread/burstwrite functions
 	def multiread(self, addr, num):
@@ -163,6 +175,52 @@ class RADIANT:
 			val |= 0x80000000
 		self.write(self.map['RESET'], val)
 
+	# Put a given quad into calibration mode. We do this for both
+	# sides just to keep it easy.
+	def calSelect(self, quad=None):
+		# First disable all of em. This switches on the red LED
+		# for helpful visualization during debugging.
+		for i in range(6):
+			cur = self.read(self.map['BM_I2CGPIO_BASE']+4*i)
+			cur &= 0xF6
+			self.write(self.map['BM_I2CGPIO_BASE']+4*i, cur)
+		if quad is not None:
+			quad = quad % 3
+			for i in range(2):
+				self.read(self.map['BM_I2CGPIO_BASE']+4*(quad+3*i))
+				cur &= 0xF6
+				# set bits 3 and 1 (turns on green LED)
+				cur |= 0x09
+				self.write(self.map['BM_I2CGPIO_BASE']+4*(quad+3*i), cur)
+		
+	# if trigger=True, we set the trigger atten, not signal atten
+	def atten(self, channel, value, trigger=False):
+		# figure out the quad
+		quad = int(channel/4)
+		addr = self.map['BM_I2CGPIO_BASE']+quad*4
+		# make sure LE starts out low
+		cur = self.read(addr)
+		cur &= 0xFD
+		self.write(addr, cur)
+		
+		# figure out the channel
+		# attens go ch0 sig = 0, ch0 trig = 1,
+		# ch1 sig = 2, ch1 trig = 3, etc.
+		att = channel % 4
+		att <<= 1
+		if trigger:
+			att |= 0x1
+		toWrite = (att << 8) | value
+		print("Writing", hex(toWrite))
+		self.write(self.map['BM_SPIOUTLSB'], toWrite)
+		# get the current GPIO value
+		cur = self.read(addr)
+		# raise LE
+		new = cur | 0x2
+		self.write(addr, new)
+		# lower LE
+		self.write(addr, cur)
+		
 	def monSelect(self, lab):
 		# just do both to the same value, whatever
 		val = lab % 12
