@@ -282,10 +282,16 @@ class LAB4_Controller:
                 self.write(self.map['CONTROL'], int(ctrl))
                 ctrl = bf(self.read(self.map['CONTROL']))
         '''
-        send software trigger
+        send software trigger. block=True means wait until readout complete
         '''
-        def force_trigger(self):
+        def force_trigger(self, block=False):
             self.write(self.map['TRIGGER'], 2)
+            if block is True:
+                busy = 1
+                while busy != 0:
+                    busy = self.read(self.map['READOUT']) & 0x1
+                    if busy != 0:
+                        print("still busy, waiting...");
         '''
         clear all registers on LAB.
         '''
@@ -455,9 +461,9 @@ class LAB4_Controller:
             self.l4reg(lab4, 6, 950)       #PCLK-1=6 : Vbias2 
             self.l4reg(lab4, 7, 1024)      #PCLK-1=7 : CMPbias 
             self.l4reg(lab4, 9, 1000)      #PCLK-1=9 : Qbias 
-            self.l4reg(lab4, 10, 2780)     #PCLK-1=10 : ISEL (gives ~20 us long ramp)
+            #self.l4reg(lab4, 10, 2780)     #PCLK-1=10 : ISEL (gives ~20 us long ramp)
             #self.l4reg(lab4, 10, 2350)     #PCLK-1=10 : ISEL (gives ~5 us long ramp)
-            #self.l4reg(lab4, 10, 2580)     #PCLK-1=10 : ISEL (gives ~10 us long ramp)
+            self.l4reg(lab4, 10, 2580)     #PCLK-1=10 : ISEL (gives ~10 us long ramp)
             
             calFbs = self.calibrations.read_vtrimfb(self.dev.dna())
             if calFbs == None:
