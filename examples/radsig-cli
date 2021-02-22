@@ -4,11 +4,6 @@ from radiant import RADIANT
 import argparse
 import sys
 
-# This example just sets the frequency to 91 MHz and leaves
-# it on. I don't have an example to turn it off. Need to add
-# command line crap here. I also don't select a quad (that's
-# dev.calSelect).
-
 parser = argparse.ArgumentParser(description='Control the Signal Generator on the RADIANT BM') 
 
 onoff = parser.add_mutually_exclusive_group() 
