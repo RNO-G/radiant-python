@@ -7,14 +7,14 @@ class RadDMA:
             'TXNCOUNT' : 0x0C,
             'DESCRBASE': 0x80 }
     
-    # Normal event DMA mode: no byte mode, no incr address, to SPI, no receive, flag out enabled, flag thresh = 512, ext req enabled
-    # 1000_0010_0000_0000 xxxx xxx0 xx00_0101 = 0x8200_0005
+    # Normal event DMA mode: no byte mode, to SPI, no receive, flag out enabled, flag thresh = 512, ext req enabled
+    # 1000_0010_0000_0000 xxxx xxx0 xx0x_0101 = 0x8200_0005
     eventDmaMode = 0x82000005
-    # calibration DMA mode: no byte mode, incr address, to SPI, no receive, flag out enabled, flag thresh = 512, ext req disabled
-    # 1000_0010_0000_0000 xxxx xxx0 xx01_0001 = 0x8200_0011
-    calDmaMode = 0x82000011
-    # CPLD config DMA mode: byte mode, byte target 0, no incr address, from SPI, enable receive, flag out disabled, ext req disabled
-    # 0000_0000_0000_0000 xxxx xxx1 0010_0001 = 0x0000_0121
+    # calibration DMA mode: no byte mode, to SPI, no receive, flag out enabled, flag thresh = 512, ext req disabled
+    # 1000_0010_0000_0000 xxxx xxx0 xx0x_0001 = 0x8200_0011
+    calDmaMode = 0x82000001
+    # CPLD config DMA mode: byte mode, byte target 0, from SPI, enable receive, flag out disabled, ext req disabled
+    # 0000_0000_0000_0000 xxxx xxx1 001x_0001 = 0x0000_0121
     # NOTE: I need to add the transfer delay bits (bits [15:9]) to make this work!
     cpldDmaMode = 0x00000121
     # this probably also works for others, think about it later
