@@ -1,0 +1,45 @@
+#!/usr/bin/env python3
+
+from radiant import RADIANT
+import argparse
+import sys
+
+parser = argparse.ArgumentParser(description='Control the Signal Generator on the RADIANT BM') 
+
+onoff = parser.add_mutually_exclusive_group() 
+onoff.add_argument("--on", help="Turn on the signal generator", action="store_true")
+onoff.add_argument("--off", help="Turn off the signal generator", action="store_true") 
+
+parser.add_argument('--freq', help="Set frequency in MHz", type=float) 
+parser.add_argument('--pulse', help="The pulse mode", action="store_true") 
+parser.add_argument('--port', help="The serial port", default="/dev/ttyO5") 
+parser.add_argument('--band', help='The bandpass. 0: 50-100 MHz, 1: wonky, 2: 600- MHz, 3: wonky', type=int, default=0, choices=range(0,3))
+
+parser.parse_args() 
+
+
+dev = RADIANT(parser.port)
+
+if parser.on: 
+    dev.radsig.enable(True)
+    print("Turning on signal generator") 
+elif parser.off:
+    dev.radsig.enable(False)
+    print("Turning off signal generator and exiting") 
+    sys.exit(0) 
+
+
+enable_pulse = True if parser.pulse else False 
+
+if enable_pulse:
+    print("Using pulse!" )
+else:
+    print ("using band %d" % (parser.band) )
+
+dev.radsig.signal(pulse=enable_pulse, band=parser.band)
+
+if parser.freq:
+    print("Setting frequency to %g MHz" % (parser.freq))
+    dev.radsig.setFrequency(parser.freq)
+
+
