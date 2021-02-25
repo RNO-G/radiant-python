@@ -7,6 +7,9 @@ from lab4_calram import LAB4_Calram
 from radcalib import RadCalib
 from radsig import RadSig
 
+from bbspi import BBSPI
+from raddma import RadDMA
+
 class RADIANT:
 	##### GLOBAL CRAP
 	
@@ -21,6 +24,7 @@ class RADIANT:
 			'SPISS' : 0x24,
 			'DNA' : 0x2C,
 			'SPIBASE' : 0x30,
+			'DMABASE' : 0x8000,
 			'LAB4_CTRL_BASE' :   0x10000,
 			'LAB4_CALRAM_BASE' : 0x80000,
 			'BM_ID' : 0x400000,
@@ -93,6 +97,9 @@ class RADIANT:
 		
 		# RadSig
 		self.radsig = RadSig(self)
+		
+		# DMA
+		self.dma = RadDMA(self, self.map['DMABASE'], BBSPI())
 
         # these almost should be considered internal: to burst write/read use the burstread/burstwrite functions
 	def multiread(self, addr, num):
