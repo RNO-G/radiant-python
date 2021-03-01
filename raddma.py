@@ -14,11 +14,36 @@ class RadDMA:
     # 1000_0010_0000_0000 xxxx xxx0 xx0x_0001 = 0x8200_0011
     calDmaMode = 0x82000001
     # CPLD config DMA mode: byte mode, byte target 0, from SPI, enable receive, flag out disabled, ext req disabled
-    # 0000_0000_0000_0000 xxxx xxx1 001x_0001 = 0x0000_0121
+    # 0000_0000_0000_0000 xxxx xxx1 001x_1001 = 0x0000_0129
     # NOTE: I need to add the transfer delay bits (bits [15:9]) to make this work!
-    cpldDmaMode = 0x00000121
+    #cpldDmaMode = 0x00000129
     # this probably also works for others, think about it later
-            
+
+    # The BASE DMA write speed is around 20 50 MHz clocks.
+    # The cycle delay just adds 1 to each of that.
+    #
+    # For the CPLD, it takes 4*count cycles, or up to 32 clocks to finish.
+    # So the cycle delay should be 16 to be safe.
+    cpldDmaMode = 0x00000129 | (16 << 9)
+    # For the LAB4D, it depends on the prescale. For the RADIANT it's like
+    # (26*40 ns = 1040 ns) BUT you also have the LAB4 controller latency
+    # which is MUCH larger - around something like 40-50 clocks as well.
+    # So it's better to make this the maximum.
+    
+    # LAB4 dma mode: no byte mode, from SPI, enable receive, flag out disabled, ext req disabled
+    # 0000_0000_0000_0000 xxxx xxx1 0000_1001
+    # NOTE: I still need to ACTUALLY confirm this works!! It'd be really
+    # nice to be able to just DMA the registers in, but this should be
+    # considered UnTested.
+    lab4DmaMode = 0x00000109 | (127 << 9)
+    
+    # For DMA *calibration* writes, they're instant and need no delay.
+    calDmaWriteMode = 0x00000109
+    
+    # SPI stuff I still need to work on, I want to get rid of the SPI core and use
+    # a PicoBlaze based guy like in HELIX. That'll allow things to be done close to
+    # max speed, I think.
+    
     def __init__(self, dev, base, spi):
         self.dev = dev
         self.base = base
