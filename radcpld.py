@@ -57,7 +57,9 @@ class RadCPLD:
 		self.__shiftirdr(0xC6, 0x00)
 		# ISC_ERASE
 		self.__shiftirdr(0x0E, 0x01, False)
+		print("Erasing...", end='', flush=True)		
 		self.__runtest(1)
+		print("done")
 		# BYPASS
 		self.__shiftir(0xFF, False)
 		# go to RTI
@@ -68,6 +70,7 @@ class RadCPLD:
 		self.__shiftir(0x7A, False)
 		# Go to SDR (using magic shift-IR + self.sir = shift-DR)
 		self.dev.write(self.addr, self.__sir)
+		print("Loading",end='',flush=True)
 		if useBurst:	
 			# clock a lot of FFs to ensure we're starting off OK
 			self.dev.write(self.addr, 0x670000FF)
@@ -108,11 +111,13 @@ class RadCPLD:
 				self.dev.write(self.addr, 0x67000000 | ord(val))
 				val = nv
 				nv = f.read(1)
-
+		print("")
+		print("Starting up...", end='', flush=True)
 		# now we're on the last, and we're out of burst mode.
 		self.dev.write(self.addr, 0x67008000 | ord(val))
 		# runtest for a while
 		self.dev.write(self.addr, self.__sirrti)
+		
 		for i in range(50):
 			self.__runtest(0.002)
 		# and disable ISC
