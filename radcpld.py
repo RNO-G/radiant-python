@@ -93,7 +93,7 @@ class RadCPLD:
 				if len(b) == 128 or lastXfer:
 					self.dev.burstWrite(self.addr, b, inBurst=True, endBurst=lastXfer)
 					b = bytearray(0)		
-					print(".", end='')
+					print(".", end='', flush=True)
 		else:
 			# clock a lot of FFs to ensure we're starting off OK
 			for i in range(388):
