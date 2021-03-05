@@ -1,5 +1,7 @@
 from bf import bf
 import picoblaze
+import pickle
+from os import path
 
 # Parameterized LAB4 controller (hopefully...)
 class LAB4_Controller:
@@ -21,7 +23,7 @@ class LAB4_Controller:
                 'READOUTEMPTY'                  : 0x0005C,
                 'pb'				: 0x0007C,
                 }
-
+                
         # default (SURF) config. Override these as needed.
         # montimingSelectFn doesn't actually need to return anything, it's done here so I don't need to check if it's not None
         defconfig = { 'numLabs'    : 12,           # number of LAB4s
@@ -57,6 +59,7 @@ class LAB4_Controller:
 
         # the kwargs list was long: see above for the list of all config options.
         def __init__(self, dev, base, calibrations, **kwargs):
+            self.defaults = None
             
             #numLabs=12, labAll=15, syncOffset=0, labMontimingMapFn=None, regclrAll=0xFFF):
             self.dev = dev
@@ -104,6 +107,11 @@ class LAB4_Controller:
         @readoutempty.setter
         def readoutempty(self, threshold):
             self.write(self.map['READOUTEMPTY'], threshold)
+
+        def load_defaults(self, fn="lab4defaults.p"):
+            if not path.isfile(fn):
+                print("Cannot open file ", fn)
+            self.defaults = pickle.load(open(fn, "rb"))
             
         # We do match=1 here because we find the first WR_STRB edge
         # after SYNC's rising edge, which means it's latching the WR
@@ -120,6 +128,11 @@ class LAB4_Controller:
                 labs = [lab]
             # Find our start point. SYNC is always scan #12
             sync_edge = self.scan_edge(12, 1)
+            if sync_edge == 0xFFFF:
+                # this will never happen
+                print("No sync edge found??")
+                return
+            
             print("Found sync edge: %d" % sync_edge)
             for i in labs:
                 self.montimingSelectFn(i)
@@ -128,6 +141,10 @@ class LAB4_Controller:
                 # Find our PHAB sampling point.
                 self.set_tmon(lab, self.tmon['WR_STRB'])
                 wr_edge = self.scan_edge(scanNum, 1, sync_edge)
+                if sync_edge == 0xFFFF:
+                    print("No WR_STRB edge found for LAB%d, skipping!" % i)
+                    continue
+                # if WR_STRB edge finding worked, PHAB should too
                 print("Found WR_STRB edge on LAB%d: %d" % (i, wr_edge))
                 wr_edge = wr_edge - self.syncOffset
                 if wr_edge < 0:
@@ -151,7 +168,14 @@ class LAB4_Controller:
                 scanNum = self.labMontimingMapFn(lab)
                 
                 rising=self.scan_edge(scanNum, 1, 0)
+                if rising == 0xFFFF:
+                    print("No rising edge on VadjP: looks stuck")
+                    return
                 falling=self.scan_edge(scanNum, 0, rising+100)
+                if falling == 0xFFFF:
+                    print("No falling edge on VadjP: looks stuck")
+                    return
+                
                 width=falling-rising
                 if width < 0:
                         print("Width less than 0, do something.")
@@ -197,6 +221,9 @@ class LAB4_Controller:
             delta = 20            
             self.l4reg(lab, 3, vadjn)            
             width = self.scan_width(scanNum, 64)
+            if width == 0 or width > 4400:
+                print("VadjN looks stuck")
+                return 0
             oldwidth = width
             print("Trial: vadjn %d width %f" % ( vadjn, width))
             while abs(width-840) > 0.5:
@@ -218,9 +245,11 @@ class LAB4_Controller:
                 print("Trial: vadjn %d width %f" % ( vadjn, width))
             return vadjn            
                 
+        ''' switch the phase scanner to free-scan (ChipScope view) mode '''
         def scan_free(self):
             self.write(self.map['PHASECMD'], 0x01)
             
+        ''' scan the full width of a signal (how many 1s are in a 2-clock period) '''
         def scan_width(self, scanNum, trials=1):
             self.write(self.map['PHASEARG'], scanNum)
             res = 0
@@ -232,6 +261,7 @@ class LAB4_Controller:
                 res += self.read(self.map['PHASERES'])                
             return res/(trials*1.0)
 
+        ''' get the value of a signal at a specific phase step '''
         def scan_value(self,scanNum,position):
             if position > 4479:
                 print("Position must be 0-4479.")
@@ -246,6 +276,7 @@ class LAB4_Controller:
                 res = self.read(self.map['PHASECMD'])
             return self.read(self.map['PHASERES'])
         
+        ''' locate the edge of a signal. 65535 means "no edge found" '''
         def scan_edge(self,scanNum, pos=0, start=0):
             val = bf(0)
             val[15:0] = start
@@ -282,16 +313,24 @@ class LAB4_Controller:
                 self.write(self.map['CONTROL'], int(ctrl))
                 ctrl = bf(self.read(self.map['CONTROL']))
         '''
-        send software trigger. block=True means wait until readout complete
+        send software trigger. block=True means wait until readout complete. numTrig sends that many triggers (up to 256).
+        safe allows disabling the run mode check if you already know it is running
         '''
-        def force_trigger(self, block=False):
-            self.write(self.map['TRIGGER'], 2)
+        def force_trigger(self, block=False, numTrig=1, safe=True):
+            if block is True and safe is True:
+                ctrl = bf(self.read(self.map['CONTROL']))
+                if not ctrl[1]:
+                    print("Can't trigger, LAB4 not in run mode")
+            if numTrig > 256:
+                print("limiting to 256 triggers")
+                numTrig = 256
+            numTrig = numTrig - 1
+            self.write(self.map['TRIGGER'], 2 | (numTrig << 8))
             if block is True:
                 busy = 1
                 while busy != 0:
-                    busy = self.read(self.map['READOUT']) & 0x1
-                    if busy != 0:
-                        print("still busy, waiting...");
+                    # check readout busy and force trigger sequence
+                    busy = self.read(self.map['READOUT']) & 0x21
         '''
         clear all registers on LAB.
         '''
@@ -417,7 +456,7 @@ class LAB4_Controller:
                 return
             user[11:0] = value
             user[23:12] = addr
-            user[27:24] = lab
+            user[28:24] = lab
             user[31] = 1
             if verbose:
                 print("Going to write 0x%X" % int(user)) 
@@ -425,9 +464,30 @@ class LAB4_Controller:
             while not user[31]:
                 user = bf(self.read(self.map['L4REG']))
 
+        ''' Just return the value to be written into L4REG rather than doing something '''
+        def l4regval(self,lab,addr,value):
+           user = bf(0)
+           user[11:0] = value
+           user[23:12] = addr
+           user[28:24] = lab
+           user[31] = 1
+           return int(user)
+                
         def default(self, lab4=None):
             if lab4 is None:
                 lab4 = self.labAll
+            
+#            # try to load if we haven't already
+#            # NOTE: we ACTUALLY want to put this bit
+#            # in RadCalib, I think!!
+#            if self.defaults is None:
+#                self.load_defaults()
+#            
+#            # and use defaults
+#            for item in self.defaults.items():
+#                print("Loading LAB4 register", item[0], "with", item[1])
+#                self.l4reg(lab4, item[0], item[1])
+                
             '''DAC default values'''
             self.l4reg(lab4, 0, 1024)      #PCLK-1=0 : Vboot 
             self.l4reg(lab4, 1, 1024)      #PCLK-1=1 : Vbsx
