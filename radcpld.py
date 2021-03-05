@@ -93,6 +93,7 @@ class RadCPLD:
 				if len(b) == 128 or lastXfer:
 					self.dev.burstWrite(self.addr, b, inBurst=True, endBurst=lastXfer)
 					b = bytearray(0)		
+					print(".", end='')
 		else:
 			# clock a lot of FFs to ensure we're starting off OK
 			for i in range(388):
@@ -118,7 +119,8 @@ class RadCPLD:
 		self.__isc_disable(False)
 		f.close()
 		self.enable(False)
-
+		print("OK")
+		
 	# Useful for checking if the file you've got is
 	# correct *before* screwing with things.
 	# Call this with the filename, if it returns None
