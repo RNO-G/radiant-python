@@ -10,7 +10,26 @@ from radsig import RadSig
 from bbspi import BBSPI
 from raddma import RadDMA
 
+import Adafruit_BBIO.GPIO as GPIO
+import time
+
 class RADIANT:
+	## NOTE THIS IS A STATIC FUNCTION
+	def boardmanReset():
+		GPIO.setup("P8_30", GPIO.OUT, pull_up_down=GPIO.PUD_UP, initial=GPIO.HIGH)
+		GPIO.output("P8_30", GPIO.LOW)
+		GPIO.output("P8_30", GPIO.HIGH)
+		GPIO.setup("P8_30", GPIO.IN, pull_up_down=GPIO.PUD_UP)
+	
+	def boardmanBootloader():
+		GPIO.setup("P8_30", GPIO.OUT, pull_up_down=GPIO.PUD_UP, initial=GPIO.HIGH)
+		GPIO.output("P8_30", GPIO.LOW)
+		GPIO.output("P8_30", GPIO.HIGH)
+		time.sleep(0.05)
+		GPIO.output("P8_30", GPIO.LOW)
+		GPIO.output("P8_30", GPIO.HIGH)
+		GPIO.setup("P8_30", GPIO.IN, pull_up_down=GPIO.PUD_UP)		
+	
 	##### GLOBAL CRAP
 	
 	map = { 'FPGA_ID' : 0x0,
@@ -68,7 +87,16 @@ class RADIANT:
 	def __init__(self, port, type=DeviceType.SERIAL):
 		if type == self.DeviceType.SERIAL:
 			self.dev = SerialCOBSDevice(port, 1000000)
+			# pull in the interface functions
+			self.reset = self.dev.reset
+			self.read = self.dev.read
+			self.write = self.dev.write
 
+		# create the calibration interface. Starts off being unloaded.
+		# Will be loaded when a DNA's present.
+		# If we try to use without a DNA, use lab4generic_3G2.p's parameters.
+		self.calib = RadCalib(self, "lab4generic_3G2.p")
+			
 		# create the CPLDs. These are really only for JTAG configuration.
 		self.cpl = RadCPLD(self, self.map['LJTAG'], self.cpldJtag)
 		self.cpr = RadCPLD(self, self.map['RJTAG'], self.cpldJtag)		
@@ -90,7 +118,7 @@ class RADIANT:
 			   'regclrAll' : 0x1 }
 			
 		# Dummy calibration for now. Need to redo the calibration core anyway.		
-		self.labc = LAB4_Controller(self, self.map['LAB4_CTRL_BASE'], RadCalib(), **config)
+		self.labc = LAB4_Controller(self, self.map['LAB4_CTRL_BASE'], self.calib, **config)
 		
 		# Calram
 		self.calram = LAB4_Calram(self, self.map['LAB4_CALRAM_BASE'], self.labc, numLabs=24, labAllMagic=31)
@@ -167,12 +195,15 @@ class RADIANT:
 			resp = self.multiwrite(addr, tx)
 		if endBurst:
 			self.write(self.map['BM_CONTROL'], 0)
-			
-	def read(self, addr):
-		return self.dev.read(addr)
 	
-	def write(self, addr, val):
-		return self.dev.write(addr, val)		
+	# these are hidden functions, they're
+	# pulled from the interface type
+	# yes, I need a better way of doing this
+	#def read(self, addr):
+	#	return self.dev.read(addr)
+	
+	#def write(self, addr, val):
+	#	return self.dev.write(addr, val)		
 
 	def cpldJtag(self, enable):
 		# enable is bit 31 of reset reg
