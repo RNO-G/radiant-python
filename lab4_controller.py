@@ -108,7 +108,7 @@ class LAB4_Controller:
         def readoutempty(self, threshold):
             self.write(self.map['READOUTEMPTY'], threshold)
 
-        def load_defaults(self, fn="lab4defaults.p"):
+        def load_defaults(self, fn="lab4defaults_3G2.p"):
             if not path.isfile(fn):
                 print("Cannot open file ", fn)
             self.defaults = pickle.load(open(fn, "rb"))
@@ -204,6 +204,7 @@ class LAB4_Controller:
                                         if delta < 1:
                                                 delta = 1
                                 vadjp -= delta
+                        vadjp = int(vadjp)
                         oldtrial = trial
                         self.l4reg(lab, 8, vadjp)
                         rising=self.scan_edge(scanNum, 1, 0)
@@ -472,90 +473,45 @@ class LAB4_Controller:
            user[28:24] = lab
            user[31] = 1
            return int(user)
+
+        ''' update the *specifics* for a given lab4 '''
+        def update(self, lab4):
+            spec = self.calibrations.lab4_specifics(lab4)
+            for item in spec.items():
+                self.l4reg(lab4, item[0], item[1])
                 
+        ''' fully initialize a LAB4 '''
         def default(self, lab4=None):
             if lab4 is None:
                 lab4 = self.labAll
             
-#            # try to load if we haven't already
-#            # NOTE: we ACTUALLY want to put this bit
-#            # in RadCalib, I think!!
-#            if self.defaults is None:
-#                self.load_defaults()
-#            
-#            # and use defaults
-#            for item in self.defaults.items():
-#                print("Loading LAB4 register", item[0], "with", item[1])
-#                self.l4reg(lab4, item[0], item[1])
+            # There are two sets of defauts: there's the universal LAB4 defaults,
+            # which are basically only sampling-rate dependent, and then there's
+            # the per-LAB guys.
+            #
+            # The universal ones are just grabbed by the LAB4 controller,
+            # and then we grab the per-LAB ones from RadCalib, which, if they
+            # haven't been loaded yet, tries the defaults.
                 
-            '''DAC default values'''
-            self.l4reg(lab4, 0, 1024)      #PCLK-1=0 : Vboot 
-            self.l4reg(lab4, 1, 1024)      #PCLK-1=1 : Vbsx
-            self.l4reg(lab4, 2, 1024)      #PCLK-1=2 : VanN
-            calNs = self.calibrations.read_vadjn(self.dev.dna())
-            if calNs == None:
-                print("Using default VadjN of 1671.")
-                self.l4reg(lab4, 3, 1671)
-            else:
-                print("Using cal file for VadjN's")
-                if lab4 == self.labAll:
-                    for i in range(self.numLabs):
-                        self.l4reg(i,3,calNs[i])
-                    else:
-                        self.l4reg(lab4, 3, calNs[lab4])
-
-            calPs = self.calibrations.read_vadjp(self.dev.dna())
-            if calPs == None:
-                print("Using default VadjP of 2700.")
-                self.l4reg(lab4, 8, 2700)
-            else:
-                print("Using cal file for VadjP's")
-                if lab4 == self.labAll:
-                    for i in range(self.numLabs):
-                        self.l4reg(i,8,calPs[i])
-                    else:
-                        self.l4reg(lab4, 8, calPs[lab4])
-                        
-            self.l4reg(lab4, 4, 1024)      #PCLK-1=4 : Vbs 
-            self.l4reg(lab4, 5, 1100)      #PCLK-1=5 : Vbias 
-            self.l4reg(lab4, 6, 950)       #PCLK-1=6 : Vbias2 
-            self.l4reg(lab4, 7, 1024)      #PCLK-1=7 : CMPbias 
-            self.l4reg(lab4, 9, 1000)      #PCLK-1=9 : Qbias 
-            #self.l4reg(lab4, 10, 2780)     #PCLK-1=10 : ISEL (gives ~20 us long ramp)
-            #self.l4reg(lab4, 10, 2350)     #PCLK-1=10 : ISEL (gives ~5 us long ramp)
-            self.l4reg(lab4, 10, 2580)     #PCLK-1=10 : ISEL (gives ~10 us long ramp)
+            # Try to load the global defaults if we haven't already.
+            if self.defaults is None:
+                self.load_defaults()
             
-            calFbs = self.calibrations.read_vtrimfb(self.dev.dna())
-            if calFbs == None:
-                print("Using default Vtrimfb of 1350.")
-                self.l4reg(lab4, 11, 1350)
+            # and use defaults. These can be globally loaded if desired.
+            print("Loading global defaults...", end='', flush=True)
+            for item in self.defaults.items():
+                self.l4reg(lab4, item[0], item[1])
+            print("done.")
+            
+            # The specs, however, have to be loaded 1 by 1.
+            larr = []
+            if lab4 == self.labAll:                
+                for i in range(self.numLabs):
+                    larr.append(i)
             else:
-                print("Using cal file for Vtrimfb's")
-                if lab4 == self.labAll:
-                    for i in range(self.numLabs):
-                        self.l4reg(i,11,calFbs[i])
-                    else:
-                        self.l4reg(lab4, 11, calFbs[lab4])
+                larr.append(lab4)
             
-            self.l4reg(lab4, 16, 0)        #patrick said to add 6/9
-            #PCLK-1=<256:384> : dTrim DACS            
-            for i in range (0, 128):       
-                self.l4reg(lab4, i+256, 1600)
-
-            '''timing register default values'''        
-            self.l4reg(lab4, 384, 95)      #PCLK-1=384 : wr_strb_le 
-            self.l4reg(lab4, 385, 0)       #PCLK-1=385 : wr_strb_fe 
-            #self.l4reg(lab4, 386, 120)     #PCLK-1=386 : sstoutfb
-            self.l4reg(lab4, 386, 104)     #PCLK-1=386 : sstoutfb --optimized for lab0 on canoes, to be generalized 
-            self.l4reg(lab4, 387, 0)       #PCLK-1=387 : wr_addr_sync 
-            self.l4reg(lab4, 388, 55)      #PCLK-1=388 : tmk_s1_le  --was 38
-            self.l4reg(lab4, 389, 86)      #PCLK-1=389 : tmk_s1_fe 
-            self.l4reg(lab4, 390, 7)       #PCLK-1=390 : tmk_s2_le  --was 110
-            self.l4reg(lab4, 391, 32)      #PCLK-1=391 : tmk_s2_fe  --was 20
-            self.l4reg(lab4, 392, 35)      #PCLK-1=392 : phase_le -- was 45 6/8
-            self.l4reg(lab4, 393, 75)      #PCLK-1=393 : phase_fe -- was 85 6/8
-            self.l4reg(lab4, 394, 100)     #PCLK-1=394 : sspin_le --maybe push up to 104 to squeek out extra ABW (was at 92)
-            self.l4reg(lab4, 395, 6)       #PCLK-1=395 : sspin_fe
-            
-            '''default test pattern'''
-            self.l4reg(lab4, 13, 0xBA6)    #PCLK-1=13  : LoadTPG
+            for li in larr:
+                print("Loading specifics for LAB%d..." % li, end='', flush=True)
+                self.update(li)
+                print("done.")
