@@ -5,6 +5,18 @@ from time import sleep
 class SerialCOBSDevice:
 	def __init__(self, port, baudrate):
 		self.dev = serial.Serial(port, baudrate)
+		self.reset()
+
+	def reset(self):		
+		# flushy-flushy
+		self.dev.write([0x00,0x00,0x00,0x00])
+		rx = self.dev.in_waiting
+		# and dump
+		if rx:
+			self.dev.read(rx)
+
+
+
 
         # Multiread isn't necessarily supported for all addresses, be careful!
 	def multiread(self, addr, num):
