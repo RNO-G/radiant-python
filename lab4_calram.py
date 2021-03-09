@@ -27,6 +27,9 @@ class LAB4_Calram:
     def write(self, lab, addr, value):
         return self.dev.write(self.base + 16384*lab + addr, value)
     
+    def numRolls(self):
+        return self.read(self.numLabs, self.map['ROLLCOUNT'])
+    
     def mode(self, mode):
         # mode control is in the numLabs space
         if mode is self.CalMode.NONE:
@@ -44,7 +47,11 @@ class LAB4_Calram:
             # reset the address counter and disable
             self.write(self.numLabs, self.map['CONTROL'], 2)
             # now do a config write to set ZC mode to 1
-            self.write(self.numLabs, self.map['MODE'], 1)
+            # *and* ZC read mode to 1. ZC read mode = 0
+            # is practically pointless, so if in some wacko
+            # case we need readback, just set the mode to Pedestal
+            # and read that way. Whatever.
+            self.write(self.numLabs, self.map['MODE'], 5)
             # now enable
             self.write(self.numLabs, self.map['CONTROL'], 1)
         else:
