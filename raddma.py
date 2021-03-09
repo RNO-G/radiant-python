@@ -20,29 +20,27 @@ class RadDMA:
     # this probably also works for others, think about it later
 
     # The BASE DMA write speed is around 20 50 MHz clocks.
-    # The cycle delay just adds 1 to each of that.
+    # The cycle delay just adds 16 to each of that. But you should *ignore* the
+    # base speed, as I might speed it up! The cycle delay will *always*
+    # be 16 clocks each.
     #
     # For the CPLD, it takes 4*count cycles, or up to 32 clocks to finish.
-    # So the cycle delay should be 16 to be safe.
-    cpldDmaMode = 0x00000129 | (16 << 9)
-    # For the LAB4D, it depends on the prescale. For the RADIANT it's like
-    # (26*40 ns = 1040 ns) BUT you also have the LAB4 controller latency
-    # which is MUCH larger - around something like 40-50 clocks as well.
-    # So it's better to make this the maximum.
+    # So the cycle delay should be 2 to be safe.
+    cpldDmaMode = 0x00000129 | (2 << 9)
+    # For the LAB4D, it depends on the prescale. 
+    # For the RADIANT it's like ~160 clocks, including the LAB4 controller
+    # latency. So the cycle delay should be 12 to be safe.
     
     # LAB4 dma mode: no byte mode, from SPI, enable receive, flag out disabled, ext req disabled
     # 0000_0000_0000_0000 xxxx xxx1 0000_1001
-    # NOTE: I still need to ACTUALLY confirm this works!! It'd be really
-    # nice to be able to just DMA the registers in, but this should be
-    # considered UnTested.
-    lab4DmaMode = 0x00000109 | (127 << 9)
+
+    lab4DmaMode = 0x00000109 | (12 << 9)
     
     # For DMA *calibration* writes, they're instant and need no delay.
     calDmaWriteMode = 0x00000109
     
     # SPI stuff I still need to work on, I want to get rid of the SPI core and use
-    # a PicoBlaze based guy like in HELIX. That'll allow things to be done close to
-    # max speed, I think.
+    # a *very very* compact PicoBlaze core *just* to handle 
     
     def __init__(self, dev, base, spi):
         self.dev = dev
@@ -121,6 +119,4 @@ class RadDMA:
             else:
                 self.spi.xfer2(data[start:start+512])
                 start = start+512
-        
-                
                 
