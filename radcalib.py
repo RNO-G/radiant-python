@@ -101,13 +101,20 @@ class RadCalib:
     # assumes *nothing* other than the LAB4's been defaulted and testpatern mode is off
     # The initial tune finds the trim feedback and shifts all the trims to ensure
     # the slow sample is tunable
-    def initialTune(self, lab, maxTries=25):
+    def initialTune(self, lab, maxTries=50):
         # Start off by dead-reckoning the initial target
         self.dev.monSelect(lab)
         self.dev.labc.set_tmon(lab, self.dev.labc.tmon['SSPin'])
         # SSPin is *supposed* to be around 600 samples long in an ideal world,
         # but in reality we really need to just be around a width of less than 1000
         # for sampling to not be utter horsecrap.
+        #
+        # So hilariously, most of this is just noise (randomly showing up above 1000)
+        # but the process of *forcing* it below 1000 (by raising the constants)
+        # tends to make the later convergence process Really Fast.
+        #
+        # ... thus implying I really should be using *this* as my "starting point"
+        # scan.
         scan = 0
         if lab > 11:
             scan = 1
@@ -129,7 +136,7 @@ class RadCalib:
         
         if curTry == maxTries:
             print("initial tune failed!")
-            return
+            return False
         # Put its quad into calibration mode
         self.dev.calSelect(int(lab/4))
         self.dev.radsig.enable(False)
@@ -165,7 +172,7 @@ class RadCalib:
         while slowSample > 290 or seamSample > 350 or seamSample < 290:
             if curTry >= maxTries:
                 print("initial tune failed!")
-                return
+                return False
             # Fix the seam if it's gone off too much.
             if seamSample < 290 or seamSample > 350:
                 # Build the delta. This is totally hacked together.
@@ -217,9 +224,10 @@ class RadCalib:
                 t[lab][0] = -1*t[lab][0]
             seamSample = t[lab][0]
             slowSample = t[lab][127]
+            curTry = curTry + 1
         print("Ending seam sample :", t[lab][0],"feedback",self.calib['specifics'][lab][11])
         print("Ending slow sample :", t[lab][127],"average earlier trims", oldavg)
-        
+        return True
         
     # Gets times from a zero-crossing run. Assumes pedestals loaded, sine wave running.
     # Each run here *should* get us around 1960 zero crossings, which means
