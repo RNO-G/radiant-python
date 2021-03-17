@@ -16,6 +16,7 @@
 import numpy as np
 import pickle
 from os import path
+import time
 
 class RadCalib:
     # do something at init
@@ -31,6 +32,7 @@ class RadCalib:
         self.calib['pedestals'] = None        
         # Build up a generic RADIANT: 24x generic parameters, all independent
         generic = pickle.load(open(genericFn, "rb"))
+        self.generic = generic.copy()
         specs = []
         for i in range(numLabs):
             specs.append(generic.copy())
@@ -66,6 +68,9 @@ class RadCalib:
     def lab4_specifics(self, lab):
         return self.calib['specifics'][lab]
 
+    def lab4_resetSpecifics(self, lab):
+        self.calib['specifics'][lab] = self.generic.copy()
+    
     # Updates pedestals, both locally
     # *and* in the CALRAM.
     def updatePedestals(self):
@@ -95,7 +100,35 @@ class RadCalib:
     # assumes *nothing* other than the LAB4's been defaulted and testpatern mode is off
     # The initial tune finds the trim feedback and shifts all the trims to ensure
     # the slow sample is tunable
-    def initialTune(self, lab):
+    def initialTune(self, lab, maxTries=25):
+        # Start off by dead-reckoning the initial target
+        self.dev.monSelect(lab)
+        self.dev.labc.set_tmon(lab, self.dev.labc.tmon['SSPin'])
+        # SSPin is *supposed* to be around 600 samples long in an ideal world,
+        # but in reality we really need to just be around a width of less than 1000
+        # for sampling to not be utter horsecrap.
+        scan = 0
+        if lab > 11:
+            scan = 1
+        width = self.dev.labc.scan_width(scan)
+        curTry = 0
+        print("Initial SSPin width:", width)
+        while width > 1000 and curTry < maxTries:
+            newAvg = 0
+            for i in range(257, 383):
+                newval = self.calib['specifics'][lab][i]
+                self.calib['specifics'][lab][i] = newval + 25
+                newAvg += newval + 25
+                
+            self.dev.labc.update(lab)
+            time.sleep(0.1)
+            width = self.dev.labc.scan_width(scan)
+            print("New SSPin width (avg", newAvg/126,"):",width)
+            curTry = curTry + 1
+        
+        if curTry == maxTries:
+            print("initial tune failed!")
+            return
         # Put its quad into calibration mode
         self.dev.calSelect(int(lab/4))
         self.dev.radsig.enable(False)
@@ -127,7 +160,11 @@ class RadCalib:
             oldavg += self.calib['specifics'][lab][i]
         oldavg = oldavg/126
         print("Starting average trim:", oldavg)
+        curTry = 0
         while slowSample > 290 or seamSample > 350 or seamSample < 290:
+            if curTry >= maxTries:
+                print("initial tune failed!")
+                return
             # Fix the seam if it's gone off too much.
             if seamSample < 290 or seamSample > 350:
                 # Build the delta. This is totally hacked together.

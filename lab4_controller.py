@@ -2,6 +2,7 @@ from bf import bf
 import picoblaze
 import pickle
 from os import path
+import time
 
 # Parameterized LAB4 controller (hopefully...)
 class LAB4_Controller:
@@ -137,11 +138,42 @@ class LAB4_Controller:
             for i in labs:
                 self.montimingSelectFn(i)
                 scanNum = self.labMontimingMapFn(i)
-
+                # Check to see if we're working *at all*!
+                # The issue here is that if we're starting up
+                # and the DLL isn't running, then the trims
+                # can start up in a state where SST doesn't
+                # make it through the delay line,
+                # because the falling edge is faster.
+                # Solution there is to lower SSP a bit,
+                # which allows it to propagate and the
+                # DLL to begin properly seeing edges.
+                #
+                # Might fix this in the default function
+                # as well by starting with DLL, then
+                # if nothing is working, switch on VadjN's
+                # buffer and let it run the delay line
+                # which should force the DLL to a known
+                # spot too.
+                
+                self.set_tmon(lab, self.tmon['SSTout'])
+                width = self.scan_width(scanNum)
+                if width < 200 or width > 4000:
+                    # not working
+                    print("Delay line not working (width", width, "), trying to kick")
+                    self.l4reg(lab, 8, 2500)
+                    time.sleep(0.1)
+                    width = self.scan_width(scanNum)
+                    print("Width now", width)
+                    if width < 200 or width > 4000:
+                        print("still not working, bailing")
+                        return
+                    self.l4reg(lab, 8, 2700)
+                
+                
                 # Find our PHAB sampling point.
                 self.set_tmon(lab, self.tmon['WR_STRB'])
                 wr_edge = self.scan_edge(scanNum, 1, sync_edge)
-                if sync_edge == 0xFFFF:
+                if wr_edge == 0xFFFF:
                     print("No WR_STRB edge found for LAB%d, skipping!" % i)
                     continue
                 # if WR_STRB edge finding worked, PHAB should too
@@ -481,7 +513,7 @@ class LAB4_Controller:
                 self.l4reg(lab4, item[0], item[1])
                 
         ''' fully initialize a LAB4 '''
-        def default(self, lab4=None):
+        def default(self, lab4=None, initial=True):
             if lab4 is None:
                 lab4 = self.labAll
             
@@ -501,7 +533,7 @@ class LAB4_Controller:
             print("Loading global defaults...", end='', flush=True)
             for item in self.defaults.items():
                 self.l4reg(lab4, item[0], item[1])
-            print("done.")
+            print("done.")            
             
             # The specs, however, have to be loaded 1 by 1.
             larr = []
@@ -515,3 +547,13 @@ class LAB4_Controller:
                 print("Loading specifics for LAB%d..." % li, end='', flush=True)
                 self.update(li)
                 print("done.")
+                if initial:
+                    # "initial" implies this was a startup.
+                    # So we need to drive VadjN to a reasonable value and let the DLL
+                    # take over from there.
+                    print("Kickstarting LAB%d..." % li, end='', flush=True)
+                    self.l4reg(lab4, 2, 1024)
+                    time.sleep(0.1)
+                    self.l4reg(lab4, 2, 0)
+                    print("done.")
+                
