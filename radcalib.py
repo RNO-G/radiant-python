@@ -22,11 +22,12 @@ class RadCalib:
     # do something at init
     # trigsPerRoll is the number of triggers I have to generate
     # to get through a full 4096 samples
-    def __init__(self, dev, genericFn, numLabs=24, trigsPerRoll=4, channelMask=0):
+    def __init__(self, dev, genericFn, numLabs=24, trigsPerRoll=4, channelMask=0, calibPath="./calib"):
         self.dev = dev
         self.trigsPerRoll = 4
         self.channelMask = 0
         self.numLabs=numLabs
+        self.calibPath = calibPath
         # calib hashmap for saving/loading
         self.calib = {}
         self.calib['pedestals'] = None        
@@ -46,7 +47,7 @@ class RadCalib:
     
     # Load our calibration.
     def load(self, dna):
-        namestr = "cal_" + format(dna, 'x') + ".npy"
+        namestr = self.calibPath + "cal_" + format(dna, 'x') + ".npy"
         if path.isfile(namestr):
             self.calib = {}
             tmp = np.load(namestr)
