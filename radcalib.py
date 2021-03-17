@@ -42,7 +42,7 @@ class RadCalib:
 
     # Save our calibration.
     def save(self, dna):
-        namestr = "cal_" + format(dna, 'x') + ".npy"
+        namestr = self.calibPath + "cal_" + format(dna, 'x') + ".npy"
         np.save(namestr, self.calib)
     
     # Load our calibration.
