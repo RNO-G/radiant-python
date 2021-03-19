@@ -21,6 +21,16 @@ dev.labc.default(dev.labc.labAll)
 dev.labc.testpattern_mode(False)
 ok = []
 for i in range(24):
+    ok.append(dev.labc.automatch_phab(i))
+for i in range(24):
+    print("LAB",i,"automatch", end='')
+    if ok[i]:
+        print("SUCCESS")
+    else:
+        print("FAILURE")
+        
+ok = []
+for i in range(24):
     ok.append(dev.labc.initialTune(i))
 
 for i in range(24):
