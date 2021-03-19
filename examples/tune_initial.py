@@ -9,8 +9,9 @@ from radiant import RADIANT
 # This is also slow, as it does the initial tunes one by one, not all at once.
 
 # make sure:
-# LABs are all on
-# CPLDs are programmed
+# LABs are all on (should happen by default)
+# CPLDs are programmed (run radcpldprog.py)
+# Pedestal is at desired/attenuators set right (really!! run analog_setup.py)
 
 dev = RADIANT("/dev/ttyO5")
 dev.identify()
