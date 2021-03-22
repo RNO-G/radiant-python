@@ -28,26 +28,28 @@ class RadCalib:
         self.channelMask = 0
         self.numLabs=numLabs
         self.calibPath = calibPath
-        # calib hashmap for saving/loading
-        self.calib = {}
-        self.calib['pedestals'] = None        
         # Build up a generic RADIANT: 24x generic parameters, all independent
         generic = pickle.load(open(genericFn, "rb"))
         self.generic = generic.copy()
-        specs = []
-        for i in range(numLabs):
-            specs.append(generic.copy())
-            
-        self.calib['specifics'] = specs
+        # reset the calib
+        self.resetCalib()
 
+    def resetCalib(self):
+        self.calib = {}
+        self.calib['pedestals'] = None
+        specs = []
+        for i in range(self.numLabs):
+            specs.append(self.generic.copy())
+        self.calib['specifics'] = specs
+        
     # Save our calibration.
     def save(self, dna):
-        namestr = self.calibPath + "cal_" + format(dna, 'x') + ".npy"
+        namestr = path.join(self.calibPath, "cal_"+format(dna,'x')+".npy")
         np.save(namestr, self.calib)
     
     # Load our calibration.
     def load(self, dna):
-        namestr = self.calibPath + "cal_" + format(dna, 'x') + ".npy"
+        namestr = path.join(self.calibPath, "cal_"+format(dna,'x')+".npy")
         if path.isfile(namestr):
             self.calib = {}
             tmp = np.load(namestr)
@@ -63,7 +65,8 @@ class RadCalib:
             # can use them. To Be Done!
             self.calib = tmp[()]
         else:
-            self.calib = {}
+            print("File", namestr, "not found: using defaults")
+            self.resetCalib()
     
     # Gets the LAB4-specific parameters for each LAB.
     def lab4_specifics(self, lab):
@@ -87,6 +90,8 @@ class RadCalib:
         self.dev.labc.stop()
         # peds are updated, dump them
         print("Fetching pedestals...")
+        self.dev.dma.engineReset()
+        self.dev.dma.txReset()
         self.dev.dma.enable(True, self.dev.dma.calDmaMode)
         for i in range(self.numLabs):
             final = i==(self.numLabs-1)

@@ -18,7 +18,8 @@ dev = RADIANT("/dev/ttyO5")
 
 # make sure we're stopped
 dev.labc.stop()
-
+# make sure the DMA engine's OK
+dev.dma.reset()
 # regclr
 dev.labc.reg_clr()
 # default timings - do dev.labc.labAll instead of 0 here
