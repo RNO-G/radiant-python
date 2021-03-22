@@ -79,7 +79,12 @@ class RadDMA:
             self.write(self.map['CONFIG'], 0)
         else:
             self.write(self.map['CONFIG'], mode)
-    
+
+    def reset(self):
+        self.engineReset()
+        self.rxReset()
+        self.txReset()
+            
     def engineReset(self):
         self.write(self.map['CONTROL'], 0x4)
     
