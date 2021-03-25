@@ -3,8 +3,18 @@ from enum import Enum
 
 class LAB4_Calram:
     
+    # CalMode NONE     : disables the RAM and passes the LAB4 data
+    #                  : untouched.
+    # CalMode ADJUSTPOS: uses the RAM to pedestal-adjust the LAB4 data upward by
+    #                    adding the low 9 bits in the CalRam to each output
+    # CalMode ADJUSTNEG: similar to ADJUSTPOS but subtracts. Probably most useful.
+    # CalMode PEDESTAL : accumulates incoming LAB4 data in the CalRam
+    # CalMode ZEROCROSSING : accumulates zero-crossings (based on top 18 bits)
+    #                        of LAB4 data in the CalRam
     class CalMode(Enum):
         NONE = 'None'
+        ADJUSTPOS = 'Adjust Up'
+        ADJUSTNEG = 'Adjust Down'
         PEDESTAL = 'Pedestal'
         ZEROCROSSING = 'Zerocrossing'
 
@@ -35,6 +45,13 @@ class LAB4_Calram:
         if mode is self.CalMode.NONE:
             # disable
             self.write(self.numLabs, self.map['CONTROL'], 0)
+            self.write(self.numLabs, self.map['MODE'], 0)
+        elif mode is self.CalMode.ADJUSTPOS:
+            self.write(self.numLabs, self.map['CONTROL'], 0)
+            self.write(self.numLabs, self.map['MODE'], 0x8)
+        elif mode is self.CalMode.ADJUSTNEG:
+            self.write(self.numLabs, self.map['CONTROL'], 0)
+            self.write(self.numLabs, self.map['MODE'], 0x18)
         elif mode is self.CalMode.PEDESTAL:
             # reset the address counter and disable
             self.write(self.numLabs, self.map['CONTROL'], 2)
@@ -55,7 +72,7 @@ class LAB4_Calram:
             # now enable
             self.write(self.numLabs, self.map['CONTROL'], 1)
         else:
-            print("Illegal calibration mode")
+            print("Illegal calram mode")
             
     # Empty everything. The calrams have a way to do
     # this automatically. This only works if the LAB controller's NOT running.
