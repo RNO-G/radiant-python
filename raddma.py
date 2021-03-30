@@ -99,6 +99,23 @@ class RadDMA:
     def beginDMA(self):
         self.write(self.map['CONTROL'], 0x8)
         
+    def selftest(self):
+        self.reset()
+        # read from the ID registers
+        self.setDescriptor(0, 0, 2, increment=True, final=True)
+        addr0 = self.dev.read(0)
+        addr1 = self.dev.read(4)
+        # calDmaMode is pretty much the basic DMA read mode
+        self.enable(True, mode=self.calDmaMode)
+        self.beginDMA()
+        ret = self.dmaread(8)
+        test_addr0 = (ret[3] << 24) | (ret[2]<<16) | (ret[1]<<8) | ret[0]
+        test_addr1 = (ret[7] << 24) | (ret[6]<<16) | (ret[5]<<8) | ret[4]
+        print("Read:",hex(test_addr0),"correct is",hex(addr0))
+        print("Read:",hex(test_addr1),"correct is",hex(addr1))
+        self.enable(False)
+        return((test_addr0==addr0) and (test_addr1==addr1))
+        
     def dmaread(self, length):
         dum = [0]*512
         ret = []
