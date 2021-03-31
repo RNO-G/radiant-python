@@ -10,6 +10,8 @@ from radsig import RadSig
 from bbspi import BBSPI
 from raddma import RadDMA
 
+from spi import SPI
+
 import Adafruit_BBIO.GPIO as GPIO
 import time
 
@@ -128,7 +130,17 @@ class RADIANT:
 		
 		# DMA
 		self.dma = RadDMA(self, self.map['DMABASE'], BBSPI())
+		
+		# SPI Flash
+		self.spi = SPI(self, self.map['SPIBASE'])
 
+	# only one device, so ignore it
+	def spi_cs(self, device, value):
+		if value:
+			self.dev.write(self.map['SPISS'], 1)
+		else:
+			self.dev.write(self.map['SPISS'], 0)
+		
         # these almost should be considered internal: to burst write/read use the burstread/burstwrite functions
 	def multiread(self, addr, num):
 		if addr & 0x400000:
