@@ -93,6 +93,7 @@ class RADIANT:
 			self.reset = self.dev.reset
 			self.read = self.dev.read
 			self.write = self.dev.write
+			self.writeto = self.dev.writeto
 
 		# create the calibration interface. Starts off being unloaded.
 		# Will be loaded when a DNA's present.
@@ -133,6 +134,26 @@ class RADIANT:
 		
 		# SPI Flash
 		self.spi = SPI(self, self.map['SPIBASE'], initialize=False)
+
+	# Issues an ICAP reboot to the FPGA.
+	# Image 0 = golden (address = 0x0)
+	# Image 1 = upgrade (address = 0x0f00000)
+	# Image 2 = bootloader (address = 0x1e00000)
+	def reboot(self, image=0):
+		key = 0x464b6579
+		addr = 0
+		if image == 1:
+			addr = (0x0f00000 >> 8)
+		elif image == 2:
+			addr = (0x1e00000 >> 8)
+			
+		tx = bytearray(4)
+		tx[0] = addr & 0xFF
+		tx[1] = (addr >> 8) & 0xFF
+		tx[2] = (addr >> 16) & 0xFF
+		tx[3] = (addr >> 24) & 0xFF		
+		self.write(self.map['FPGA_ID'], key)
+		self.writeto(self.map['FPGA_DATEVERSION'], tx)
 
 	# only one device, so ignore it
 	def spi_cs(self, device, value):
@@ -293,9 +314,12 @@ class RADIANT:
 			return id
 			
 		fid = str4(self.read(self.map['FPGA_ID']))
-		fdv = self.DateVersion(self.read(self.map['FPGA_DATEVERSION']))
-		dna = self.dna()
-		print("FPGA:", fid, fdv, hex(dna))
+		if fid == "RDNT":
+			fdv = self.DateVersion(self.read(self.map['FPGA_DATEVERSION']))
+			dna = self.dna()
+			print("FPGA:", fid, fdv, hex(dna))
+		else:
+			print("FPGA:", fid)
 		bid = str4(self.read(self.map['BM_ID']))
 		bver = self.DateVersion(self.read(self.map['BM_DATEVERSION']))
 		print("Board Manager:", bid, bver)
