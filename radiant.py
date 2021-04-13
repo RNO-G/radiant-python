@@ -132,7 +132,7 @@ class RADIANT:
 		self.dma = RadDMA(self, self.map['DMABASE'], BBSPI())
 		
 		# SPI Flash
-		#self.spi = SPI(self, self.map['SPIBASE'])
+		self.spi = SPI(self, self.map['SPIBASE'], initialize=False)
 
 	# only one device, so ignore it
 	def spi_cs(self, device, value):
