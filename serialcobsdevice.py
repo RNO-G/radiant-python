@@ -43,14 +43,7 @@ class SerialCOBSDevice:
 		return val
 
 	def multiwrite(self, addr, data):
-		tx = bytearray(3)
-		tx[0] = (addr & 0x7F0000)>>16
-		tx[0] |= 0x80
-		tx[1] = (addr & 0xFF00)>>8
-		tx[2] = addr & 0xFF
-		tx.extend(data)
-		self.dev.write(cobs.encode(tx))
-		self.dev.write(b'\x00')
+		self.writeto(addr, data)
 		# expect 4 bytes back + 1 overhead + 1 framing
 		rx = self.dev.read(6)
 		pk = cobs.decode(rx[:5])
@@ -63,3 +56,16 @@ class SerialCOBSDevice:
 		tx[2] = (val & 0xFF0000)>>16
 		tx[3] = (val & 0xFF000000)>>24
 		return self.multiwrite(addr, tx)
+		
+	# supes-dangerous, only do this if you KNOW there won't be a response
+	def writeto(self, addr, data):
+		tx = bytearray(3)
+		tx[0] = (addr & 0x7F0000)>>16
+		tx[0] |= 0x80
+		tx[1] = (addr & 0xFF00)>>8
+		tx[2] = addr & 0xFF
+		tx.extend(data)
+		self.dev.write(cobs.encode(tx))
+		self.dev.write(b'\x00')
+		
+	
