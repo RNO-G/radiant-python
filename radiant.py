@@ -61,7 +61,7 @@ class RADIANT:
 		def __init__(self, val):
 			self.major = (val >> 12) & 0xF
 			self.minor = (val >> 8) & 0xF
-			self.rev = (val & 0xF)
+			self.rev = (val & 0xFF)
 			self.day = (val >> 16) & 0x1F
 			self.mon = (val >> 21) & 0xF
 			self.year = (val >> 25) & 0x7F
@@ -132,7 +132,7 @@ class RADIANT:
 		self.dma = RadDMA(self, self.map['DMABASE'], BBSPI())
 		
 		# SPI Flash
-		self.spi = SPI(self, self.map['SPIBASE'])
+		#self.spi = SPI(self, self.map['SPIBASE'])
 
 	# only one device, so ignore it
 	def spi_cs(self, device, value):

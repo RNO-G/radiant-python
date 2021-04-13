@@ -45,10 +45,15 @@ class SPI:
              'RFFULL'    : 0x02,
              'RFEMPTY'   : 0x01 }
     
-    def __init__(self, dev, base, device = 0):
+    def __init__(self, dev, base, device = 0, initialize=True):
         self.dev = dev
         self.base = base
         self.device = device 
+        self.initialized = False
+        if initialize:
+            self.initialize()
+            
+    def initialize(self):
         val = bf(self.dev.read(self.base + self.map['SPCR']))
         val[6] = 1;
         val[3] = 0;
@@ -60,8 +65,11 @@ class SPI:
         self.manufacturer_id = res[0]
         self.memory_type = res[1]
         self.memory_capacity = 2**res[2]        
+        self.initialized = True
         
     def command(self, command, dummy_bytes, num_read_bytes, data_in = [] ):
+        if not self.initialized:
+            self.initialize()
         self.dev.spi_cs(self.device, 1)
         self.dev.write(self.base + self.map['SPDR'], command)
         x = 0 
@@ -84,11 +92,15 @@ class SPI:
         return rdata
 
     def status(self):
+        if not self.initialized:
+            self.initialize()
         res = self.command(self.cmd['RDSR'], 0, 1)
         return res[0]
     
 
     def identify(self):
+        if not self.initialized:
+            self.initialize()
         print("Electronic Signature: 0x%x" % self.electronic_signature)
         print("Manufacturer ID: 0x%x" % self.manufacturer_id)
         print("Memory Type: 0x%x Memory Capacity: %d bytes" % (self.memory_type, self.memory_capacity))
@@ -100,6 +112,8 @@ class SPI:
 
 
     def read(self, address, length):
+        if not self.initialized:
+            self.initialize()
         if self.memory_capacity > 2**24:
             data_in = []
             data_in.append((address >> 24) & 0xFF)
@@ -117,6 +131,8 @@ class SPI:
 
 	
     def write_enable(self):
+        if not self.initialized:
+            self.initialize()
         enable = self.command(self.cmd["WREN"], 0, 0)
         trials = 0
         while trials < 10:
@@ -128,6 +144,8 @@ class SPI:
                 break
 
     def write_disable(self):
+        if not self.initialized:
+            self.initialize()
         disable = self.command(self.cmd["WRDI"], 0, 0)
         res = self.status()
         if res & 0x2:
@@ -136,6 +154,8 @@ class SPI:
     # DON'T USE THIS: INTELHEX SUCKS SO BAD IT'S HILARIOUS
     # NEED TO BACKPORT THE HEXFILE LIBRARY I GUESS
     def program_mcs(self, filename):
+        if not self.initialized:
+            self.initialize()
         print("Loading...",end='', flush=True)
         f = intelhex(filename)
         print("done.")
@@ -197,6 +217,8 @@ class SPI:
         print("Complete!")
 
     def page_program(self, address, data_write = []):
+        if not self.initialized:
+            self.initialize()
         self.write_enable()
         data_write.insert(0,(address & 0xFF))
         data_write.insert(0,((address>>8) & 0xFF))
@@ -218,7 +240,9 @@ class SPI:
             res = self.status()
             trials = trials + 1
 
-    def erase(self, address): 
+    def erase(self, address):
+        if not self.initialized:
+            self.initialize()
         self.write_enable()
         if self.memory_capacity > 2**24:
             data = []
@@ -248,6 +272,8 @@ class SPI:
         print("Erase complete after %d trials." % trials)
 
     def write_bank_address(self, bank):
+        if not self.initialized:
+            self.initialize()
         if self.memory_capacity > 2**24:
             return
         bank_write = self.command(self.cmd["BRWR"], 0, 0, [ bank ])
@@ -255,6 +281,8 @@ class SPI:
 	
 
     def read_bank_address(self):
+        if not self.initialized:
+            self.initialize()
         if self.memory_capacity > 2**24:
             res = []
             res.append(0)
