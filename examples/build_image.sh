@@ -27,7 +27,7 @@ if [ "$upext" = "mcs" ] ; then
    upname="$TMPDIR/upgrade.bin"
 fi
 upext=${upname##*.}
-if [ "$upext" != "bin"] ; then
+if [ "$upext" != "bin" ] ; then
    echo "Either conversion failed, or you didn't give me a bin or mcs file for UPGRADE."
    exit -1
 fi   
@@ -39,7 +39,7 @@ if [ "$bootext" = "mcs" ] ; then
    bootname="$TMPDIR/bootloader.bin"
 fi
 bootext=${bootname##*.}
-if [ "$bootext" != "bin"] ; then
+if [ "$bootext" != "bin" ] ; then
    echo "Either conversion failed, or you didn't give me a bin or mcs file for BOOTLOADER."
    exit -1
 fi
