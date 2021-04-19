@@ -1,6 +1,12 @@
 #!/usr/bin/env python3
 
 from radiant import RADIANT
+from enum import Enum
+
+class TuneResult(Enum):
+    SUCCESS = 0
+    AUTOMATCH_FAIL = 1
+    TUNE_FAIL = 2
 
 # This is an *incredibly* aggressive way of doing this.
 # If something goes wrong, it'll... just keep trying for like, 50 attempts.
@@ -18,27 +24,21 @@ dev.identify()
 dna = dev.dna()
 dev.labc.stop()
 dev.labc.reg_clr()
-dev.labc.default(dev.labc.labAll)
 dev.labc.testpattern_mode(False)
+# things are weird, let's try a different tactic
 ok = []
 for i in range(24):
-    ok.append(dev.labc.automatch_phab(i))
-for i in range(24):
-    print("LAB",i,"automatch", end='')
-    if ok[i]:
-        print("SUCCESS")
+    dev.labc.default(i)
+    matchok = dev.labc.automatch_phab(i)
+    if matchok:
+        tuneok = dev.calib.initialTune(i)
+        if tuneok:
+            ok.append(TuneResult.SUCCESS)
+        else:
+            ok.append(TuneResult.TUNE_FAIL)
     else:
-        print("FAILURE")
-        
-ok = []
+        ok.append(TuneResult.AUTOMATCH_FAIL)
 for i in range(24):
-    ok.append(dev.labc.initialTune(i))
+    print("LAB",i,"tune: ", ok[i].name)
 
-for i in range(24):
-    print("LAB",i,"tune", end='')
-    if ok[i]:
-        print("SUCCESS")
-    else:
-        print("FAILURE")
-
-dev.calib.save(dna)
+#dev.calib.save(dna)
