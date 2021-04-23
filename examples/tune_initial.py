@@ -2,6 +2,7 @@
 
 from radiant import RADIANT
 from enum import Enum
+import time
 
 class TuneResult(Enum):
     SUCCESS = 0
@@ -31,6 +32,8 @@ for i in range(24):
     dev.labc.default(i)
     matchok = dev.labc.automatch_phab(i)
     if matchok:
+        # give the DLL some time to settle?
+        time.sleep(0.5)
         tuneok = dev.calib.initialTune(i)
         if tuneok:
             ok.append(TuneResult.SUCCESS)
