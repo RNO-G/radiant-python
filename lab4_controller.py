@@ -132,7 +132,7 @@ class LAB4_Controller:
             if sync_edge == 0xFFFF:
                 # this will never happen
                 print("No sync edge found??")
-                return
+                return False
             
             print("Found sync edge: %d" % sync_edge)
             for i in labs:
@@ -166,7 +166,7 @@ class LAB4_Controller:
                     print("Width now", width)
                     if width < 200 or width > 4000:
                         print("still not working, bailing")
-                        return
+                        return False
                     self.l4reg(lab, 8, 2700)
                 
                 
@@ -193,6 +193,7 @@ class LAB4_Controller:
                     phab = self.scan_value(scanNum, wr_edge) & 0x01
                     if self.invertSync:
                         phab = phab ^ 0x01
+                return True
 
         def autotune_vadjp(self, lab, initial=2700):
                 self.set_tmon(lab, self.tmon['SSPin'])
@@ -281,6 +282,41 @@ class LAB4_Controller:
         ''' switch the phase scanner to free-scan (ChipScope view) mode '''
         def scan_free(self):
             self.write(self.map['PHASECMD'], 0x01)
+
+        ''' dump timing parameters '''
+        def scan_dump(self, lab):
+            self.montimingSelectFn(lab)
+            scanNum = self.labMontimingMapFn(lab)            
+            for strb in ['A1', 'A2', 'B1', 'B2']:
+                self.set_tmon(lab, self.tmon[strb])
+                param = self.scan_pulse_param(scanNum, 0)
+                # this should be 4480 - the total length of the phase scanner
+                # but we give it some margin
+                if param[0] == 0 or param[0] > 4470.0:
+                    print(strb, ": not present")
+                else:
+                    print(strb, ": width ", param[0], "from", param[1], "-",param[2])
+            for strb in ['SSPin', 'SSPout']:
+                self.set_tmon(lab, self.tmon[strb])
+                # get the first pulse
+                p1 = self.scan_pulse_param(scanNum, 0)
+                if p1[0] == 0 or p1[0] > 4470.0:
+                    print(strb, ": not present")
+                    continue
+                # get the second pulse, after the end of the first
+                p2 = self.scan_pulse_param(scanNum, p1[2])
+                print(strb, ": width ", p1[0], "from", p1[1],"-",p1[2], "and", p2[1], "-", p2[2])
+                
+        def scan_pulse_param(self, scan, start):
+            param = []
+            width = self.scan_width(scan)
+            param.append(width)
+            re = self.scan_edge(scan, 1, start)
+            param.append(re)
+            newStart = start + re
+            fe = self.scan_edge(scan, 0, (start+re) % 4480)
+            param.append(fe)
+            return param
             
         ''' scan the full width of a signal (how many 1s are in a 2-clock period) '''
         def scan_width(self, scanNum, trials=1):
@@ -321,6 +357,13 @@ class LAB4_Controller:
             while ret != 0x00:
                 ret = self.read(self.map['PHASECMD'])
             return self.read(self.map['PHASERES'])
+
+        def ssp_width(self, lab):
+            self.montimingSelectFn(lab)
+            scanNum = self.labMontimingMapFn(lab)
+            self.set_tmon(lab, self.tmon['SSPin'])            
+            width = self.scan_width(scanNum)
+            return width
         
         def set_amon(self, lab, value):
             self.l4reg(lab, 12, value)
@@ -553,7 +596,7 @@ class LAB4_Controller:
                     # take over from there.
                     print("Kickstarting LAB%d..." % li, end='', flush=True)
                     self.l4reg(lab4, 2, 1024)
-                    time.sleep(0.1)
+                    time.sleep(0.5)
                     self.l4reg(lab4, 2, 0)
                     print("done.")
                 
