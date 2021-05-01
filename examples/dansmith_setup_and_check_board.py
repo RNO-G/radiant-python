@@ -5,7 +5,7 @@ import copy
 import os
 import glob
 
-board_name = "B007p1"
+board_name = "B001"
 file_name_start = "./check_boards/"+str(board_name)+"/"
 if(len(glob.glob("./check_boards/"+str(board_name)+"*")) == 0):
     print("!!!! Directory doesn't exist!")
@@ -52,11 +52,6 @@ for lab in range(24):
             dev.calib.calib['specifics'][lab][base_addr + i] = 2000 
         
     dev.labc.l4reg(lab, 11, 1000)
-    dev.labc.update(lab)
-
-specs = np.load("specs.npy")
-for lab in range(24):
-    dev.calib.calib['specifics'][lab] = specs[5]
     dev.labc.update(lab)
 
 dev.labc.testpattern_mode(False)
@@ -160,4 +155,4 @@ dev.pedestal(int((760/3300)*4095))
 time.sleep(1.0)
 dev.calib.updatePedestals()
 
-
+dev.labc.stop()
