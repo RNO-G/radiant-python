@@ -7,6 +7,12 @@ class RadDMA:
             'TXNCOUNT' : 0x0C,
             'DESCRBASE': 0x80 }
     
+    # Endian-swap mode bit. This is here just to clarify for Cosmin:
+    # take the rest of the mode and OR it with this and you get byte-swapped output.
+    # as in, (eventDmaMode | bigEndianMode) gets you big endian output from an event.
+    # Don't do this in any of the byte modes... but we don't really use those anyway.
+    bigEndianMode = 0x10
+    
     # Normal event DMA mode: no byte mode, to SPI, no receive, flag out enabled, flag thresh = 512, ext req enabled
     # 1000_0010_0000_0000 xxxx xxx0 xx0x_0101 = 0x8200_0005
     eventDmaMode = 0x82000005
