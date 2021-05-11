@@ -213,6 +213,8 @@ class LAB4_Controller:
                 if width < 0:
                         print("Width less than 0, do something.")
                         return
+                width = int(width*1.05)
+                print("SSPout target: ", width)
                 vadjp=initial
                 delta=20
                 self.l4reg(lab, 8, vadjp)
@@ -388,6 +390,26 @@ class LAB4_Controller:
                 ctrl[1] = 0
                 self.write(self.map['CONTROL'], int(ctrl))
                 ctrl = bf(self.read(self.map['CONTROL']))
+        
+        ''' set trigger repeat level. This is an immensely crude way
+            of adjusting the readout length: you can change it in units of 1024 samples
+            complain to me later :) '''
+        def set_trigger_repeat(self, repeat=0):
+            if repeat > 2:
+                print("Trigger can only repeat up to 2 times")
+                return
+            ctrl = bf(self.read(self.map['CONTROL']))
+            if ctrl[1]:
+                print("cannot change trigger repeat: LAB4 in run mode")
+                return
+            # Set trigger repeat. To do that, we have
+            # to set bit 31 (to indicate we're updating the repeat)
+            # and set repeat in bits [25:24].
+            trig = (1<<31) | (repeat<<24)
+            print("setting trigger register:", hex(trig))
+            self.write(self.map['TRIGGER'], trig)
+            return                
+                
         '''
         send software trigger. block=True means wait until readout complete. numTrig sends that many triggers (up to 256).
         safe allows disabling the run mode check if you already know it is running
