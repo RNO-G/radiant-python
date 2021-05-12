@@ -2,26 +2,38 @@
 
 from radiant import RADIANT
 import time
+import numpy as np
 
 dev = RADIANT("/dev/ttyO5")
 # switch to pulse
 dev.radsig.signal(pulse=True)
 # internal PPS
 dev.write(0x10, (1<<31) | 0xa)
-for i in range(24):
-    dev.calSelect(int(i/4))
-    scan = []
-    # set threshold to initial value
-    dev.thresh(i, 500)
-    # and let it settle
-    time.sleep(0.2)
-    print("Channel",i,":",end='',flush=True)
-    for step in range(500, 1500, 100):
-        # set threshold to target
-        dev.thresh(i, step)
+# scalers
+sc = np.empty([24, 10])    
+
+for q in range(3):
+    print("Building quad",q,"and",q+3,":",end='',flush=True)
+    dev.calSelect(q)
+    for i in range(4):
+        dev.thresh(4*q + i, 500)
+        dev.thresh(4*q + i + 12, 500)
+    time.sleep(1)
+    for step in range(10):
+        print(" ", step, end='', flush=True)
+        # set thresholds
+        for i in range(4):
+            dev.thresh(4*q + i, 500 + 100*step)
+            dev.thresh(4*q + i + 12, 500 + 100*step)
         # accumulate
-        time.sleep(2)
-        # read value
-        val = dev.read(0x30400+4*i)
-        print(" ", val, end='', flush=True)
+        time.sleep(3)
+        # read values
+        for i in range(4):
+            sc[ 4*q + i ][step] = dev.read(0x30400+4*(4*q+i))
+            sc[ 4*q + i + 12][step] = dev.read(0x30400+4*(4*q+i+12))
+    print("")
+for i in range(24):
+    print("Channel",i,":",end='',flush=True)
+    for j in range(10):
+        print(" ", sc[i][j], end='', flush=True)
     print("")
