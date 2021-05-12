@@ -13,9 +13,15 @@ for i in range(6):
 
 # set pedestal to 0.76V
 dev.pedestal(int((760/3300)*4095))
+
+# set all trigger biases to 1.2V
 # set all attenuators to 0 dB
-
 for i in range(24):
+    # trigger bias
+    dev.write(dev.map['BM_TRIGDAC_BASE']+4*i, 2500)
+    # signal attenuator
     dev.atten(i, 0)
-
+    # trigger attenuator
+    dev.atten(i, 0, trigger=True)
+    
 # done
