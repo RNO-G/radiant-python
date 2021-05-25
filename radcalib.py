@@ -152,7 +152,9 @@ class RadCalib:
         self.dev.radsig.enable(True)
         self.dev.radsig.setFrequency(510.)
         # get the initial time loop
-        t = self.getTimeRun(510e6, verbose=False)
+
+        t = self.getTimeRun(550e6, verbose=False) # The setting of the freq is wrong
+        
         print("Initial seam/slow sample timing:", t[lab][0], t[lab][127])
         # Check the times to see if we're *so* far off that
         # our measured seam time might actually be *negative*.
@@ -222,7 +224,7 @@ class RadCalib:
             self.dev.labc.update(lab)
             print("done")
             # fetch times again
-            t = self.getTimeRun(510e6, verbose=False)
+            t = self.getTimeRun(550e6, verbose=False)
             print("Seam/slow sample timing now:", t[lab][0], t[lab][127])
             if np.sum(t[lab][1:128]) > 39900:
                 print("Feedback LAB%d way off (%f): %d -> %d" % (lab, 40000-np.sum(t[lab][1:128]), t[lab][0], -1*t[lab][0]))
