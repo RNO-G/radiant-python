@@ -7,6 +7,7 @@ class BBSPI:
         GPIO.setup("P8_26", GPIO.OUT)
         GPIO.output("P8_26", GPIO.LOW)
         self.spi = SPI(0,0)
+        self.spi.bpw = 8
         self.spi.msh = 48000000
         self.spi.mode = 0
         self.xfer = self.spi.xfer
