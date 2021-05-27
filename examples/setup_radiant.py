@@ -51,8 +51,14 @@ dev.labc.default(dev.labc.labAll)
 dev.labc.automatch_phab(dev.labc.labAll)
 
 dev.calib.resetCalib()
-dna = dev.dna()
-dev.calib.load(dna)
+#dna = dev.dna()
+#dev.calib.load(dna)
+
+dev.labc.testpattern_mode(False)
 
 dev.calram.zero()
 dev.calram.mode(dev.calram.CalMode.NONE)
+dev.calib.updatePedestals()
+np.save("peds.npy", dev.calib.calib['pedestals'])
+
+
