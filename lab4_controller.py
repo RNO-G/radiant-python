@@ -135,6 +135,7 @@ class LAB4_Controller:
                 return False
             
             print("Found sync edge: %d" % sync_edge)
+            err = False
             for i in labs:
                 self.montimingSelectFn(i)
                 scanNum = self.labMontimingMapFn(i)
@@ -166,7 +167,8 @@ class LAB4_Controller:
                     print("Width now", width)
                     if width < 200 or width > 4000:
                         print("still not working, bailing")
-                        return False
+                        err = True
+                        continue
                     self.l4reg(lab, 8, 2700)
                 
                 
@@ -175,6 +177,7 @@ class LAB4_Controller:
                 wr_edge = self.scan_edge(scanNum, 1, sync_edge)
                 if wr_edge == 0xFFFF:
                     print("No WR_STRB edge found for LAB%d, skipping!" % i)
+                    err = True
                     continue
                 # if WR_STRB edge finding worked, PHAB should too
                 print("Found WR_STRB edge on LAB%d: %d" % (i, wr_edge))
@@ -193,7 +196,7 @@ class LAB4_Controller:
                     phab = self.scan_value(scanNum, wr_edge) & 0x01
                     if self.invertSync:
                         phab = phab ^ 0x01
-                return True
+            return err
 
         def autotune_vadjp(self, lab, initial=2700):
                 self.set_tmon(lab, self.tmon['SSPin'])
