@@ -3,6 +3,9 @@ from bf import bf
 class RadTrig:
     map = { 'PWM_BASE'    : 0x0200,
             'MASTEREN'    : 0x0600,
+            'OVLDCONFIG'  : 0x0400,
+            'OVLDCTRLSTAT': 0x0404,
+            'OVLDCHCFG'   : 0x0408,
             'TRIGINEN'    : 0x0604,
             'PULSECTRL'   : 0x0608,
             'TRIGEN0'     : 0x0700,
@@ -46,7 +49,48 @@ class RadTrig:
             if oeb[channel]:
                 oeb[channel] = 0
                 self.write(self.map['PWM_BASE']+0x4, int(oeb))
-                
+
+    # ovldcfg is a hash:
+    # enables contains 3 bits: bit[0] enable any triggers, bit[1] enable ext. trig, bit[2] enable PPS trig
+    # extcfg contains 3 bits: bit[0] enables the external trigger output, bit[1] enables it for soft triggers, bit[2] enables it for PPS triggers
+    # extlen sets the length of the external trigger in 10 ns increments
+    # numbuf sets the number of buffers
+    # softctrl is a boolean: if 1, every trigger must be coupled with a clear
+    # chmask sets which channels are ignored when checking FIFO for full
+    # trigen sets which trigger inputs are enabled
+    # trig[0] contains trigger 0 config (see configure)
+    # trig[1] contains trigger 1 config (see configure)
+    #
+    # Configure DMA and start the LAB4 controller BEFORE this function!
+    def fullConfigure(self, ovldcfg):
+        # configure trigger first
+        self.configure(ovldcfg['trigen'], ovldcfg['trigcfg'][0], ovldcfg['trigcfg'][1])
+        # now configure trigger channel mask
+        self.write(self.map['OVLDCHCFG'], ovldcfg['chmask'])
+        # now configure overlord
+        # enables are in bits[2:0]
+        config = ovldcfg['enables'] << 0
+        # ext config is in bits[10:8]
+        config |= ovldcfg['extcfg'] << 8
+        # softctrl/numbuf in [18:16]
+        if ovldcfg['softctrl']:
+            config |= (1<<16)
+        config |= ovldcfg['numbuf'] << 17
+        # and extlen in [31:24]
+        config |= extlen << 24
+        self.write(self.map['OVLDCONFIG'], config)
+
+    def softTrig(self):
+        self.write(self.map['OVLDCTRLSTAT'], 0x1)
+    
+    def softClear(self):
+        self.write(self.map['OVLDCTRLSTAT'], 0x2)
+        
+    def triggerBusy(self):
+        if self.read(self.map['OVLDCTRLSTAT'], 0x1):
+            return True
+        return False    
+        
     # Configuration.
     # trig0/trig1 are hashes:
     # trig0['MASKB'] specifies included channels
