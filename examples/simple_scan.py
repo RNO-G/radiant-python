@@ -37,10 +37,10 @@ for q in range(3):
         l1 = dev.read(0x40800+4*(2*q+1))
         sc[ 4*q + 2 ][step] = l1 & 0xFFFF
         sc[ 4*q + 3 ][step] = (l1 >> 16) & 0xFFFF        
-        r0 = dev.read(0x40800+4*(2*q+12))
+        r0 = dev.read(0x40800+4*(2*q+6))
         sc[ 4*q + 12 ][step] = r0 & 0xFFFF
         sc[ 4*q + 13 ][step] = (r0 >> 16) & 0xFFFF
-        r1 = dev.read(0x40800+4*(2*q+1+12))
+        r1 = dev.read(0x40800+4*(2*q+1+6))
         sc[ 4*q + 14 ][step] = r1 & 0xFFFF
         sc[ 4*q + 15 ][step] = (r1 >> 16) & 0xFFFF                
     print("")
