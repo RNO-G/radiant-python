@@ -54,11 +54,12 @@ dev.calib.resetCalib()
 dna = dev.dna()
 dev.calib.load(dna)
 
-isels = [2482, 2492, 2510, 2480, 2480, 2515, 2480, 2525, 2502, 2492, 2494, 2505, 2480, 2500, 2495, 2511, 2487, 2483, 2507, 2500, 2535, 2499, 2505, 2490] # Works for 2.5
+# Using default isels for now
 
-for iLab in range(24):
-    dev.labc.l4reg(iLab, 10, isels[iLab])
-    dev.labc.update(iLab)
+#isels = [2482, 2492, 2510, 2480, 2480, 2515, 2480, 2525, 2502, 2492, 2494, 2505, 2480, 2500, 2495, 2511, 2487, 2483, 2507, 2500, 2535, 2499, 2505, 2490] # Works for 2.5
+#for iLab in range(24):
+#    dev.labc.l4reg(iLab, 10, isels[iLab])
+#    dev.labc.update(iLab)
 
 dev.labc.testpattern_mode(False)
 
