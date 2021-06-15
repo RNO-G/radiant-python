@@ -7,11 +7,16 @@ dev = RADIANT("/dev/ttyO5")
 # selected cal port. Plus if there's a failure on the cal amp
 # I *think* the LED will stay red.
 # (I need to add options to tristate all the LEDs anyway for power savings...)
+
+#dev.write(dev.map['BM_TRIGDAC_BASE'], 2500)
+#exit()
+
 for i in range(6):
     # enable LAB4 + trigger and set LED red
     dev.write(dev.map['BM_I2CGPIO_BASE']+4*i, 0xF0)
 
 # set pedestal to 0.76V
+#dev.pedestal(int((1250/3300)*4095))
 dev.pedestal(int((760/3300)*4095))
 
 # set all trigger biases to 1.2V
