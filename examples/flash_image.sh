@@ -14,7 +14,7 @@ SPIDEV=/dev/spidev0.0
 SPISPEED=16000
 FLASHROM_DEV="linux_spi:dev=$SPIDEV,spispeed=$SPISPEED"
 FLASHTYPE="S25FL256S......0"
-LAYOUT="/home/debian/radiant.layout"
+LAYOUT="radiant.layout"
 
 flashrom -p "$FLASHROM_DEV" -c "$FLASHTYPE" -w "$IMAGE" -l "$LAYOUT" -i $1 -VVV
 
