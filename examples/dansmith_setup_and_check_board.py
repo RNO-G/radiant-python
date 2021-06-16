@@ -5,29 +5,19 @@ import copy
 import os
 import glob
 
-board_name = "B001"
-file_name_start = "./check_boards/"+str(board_name)+"/"
-if(len(glob.glob("./check_boards/"+str(board_name)+"*")) == 0):
+board_name = "test_test"
+file_name_start = "."+str(board_name)+"/"
+if(len(glob.glob("."+str(board_name)+"*")) == 0):
     print("!!!! Directory doesn't exist!")
-    os.system("mkdir ./check_boards/"+str(board_name))
+    os.system("mkdir ."+str(board_name))
 
-check = True
-while check:
-    file_name_start = "./check_boards/"+str(board_name)+"/"
-    
-    if(len(glob.glob(file_name_start+"*")) != 0):
-        print("!!!! Directory is full! :", board_name)
-        print("!!!! Adding number")
-        board_name += '_new' 
-    else:
-        check = False
 print("!!!! File name will be ", board_name)
 
 print("!!!! About to program CPLDs.")
-os.system("python3 radcpldprog.py -f radiant_aux_v2.bit")
+os.system("python3 examples/radcpldprog.py -f radiant_aux_v2.bit")
 
 print("!!!! About to set analog settings.")
-os.system("python3 analog_setup.py")
+os.system("python3 examples/analog_setup.py")
 
 dev = RADIANT("/dev/ttyO5")
 
@@ -142,17 +132,4 @@ dev.calram.mode(dev.calram.CalMode.NONE)
 dev.dma.write(3, 0) # reset transaction counter
 
 # Turn on the calibration pulser
-dev.radsig.enable(False)
-
-for i in range(0, 2500, 100):
-    dev.pedestal(int((i/3300)*4095))
-    time.sleep(1.0)
-    dev.calib.updatePedestals()
-    print(i, dev.calib.calib['pedestals'][2])
-    np.save(file_name_start + "/dc_run_"+str(i), dev.calib.calib['pedestals'])
-
-dev.pedestal(int((760/3300)*4095))
-time.sleep(1.0)
-dev.calib.updatePedestals()
-
-dev.labc.stop()
+dev.radsig.enable
