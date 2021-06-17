@@ -17,7 +17,7 @@ for i in range(6):
 
 # set pedestal to 0.76V
 #dev.pedestal(int((1250/3300)*4095))
-dev.pedestal(int((760/3300)*4095))
+dev.pedestal(int((1100/3300)*4095))
 
 # set all trigger biases to 1.2V
 # set all attenuators to 0 dB

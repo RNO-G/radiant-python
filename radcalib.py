@@ -224,7 +224,7 @@ class RadCalib:
             self.dev.labc.update(lab)
             print("done")
             # fetch times again
-            t = self.getTimeRun(550e6, verbose=False)
+            t = self.getTimeRun(550e6, verbose=False) # different from freq because setting freq is wrong
             print("Seam/slow sample timing now:", t[lab][0], t[lab][127])
             if np.sum(t[lab][1:128]) > 39900:
                 print("Feedback LAB%d way off (%f): %d -> %d" % (lab, 40000-np.sum(t[lab][1:128]), t[lab][0], -1*t[lab][0]))
