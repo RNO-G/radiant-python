@@ -26,7 +26,6 @@ d[6] = 950    # Vbias2
 d[7] = 1024   # CMPbias
               # VadjP is lab-specific (...maybe)
 d[9] = 1000   # Qbias
-d[10] = 2580  # Isel (not worth being lab specific)
               # VtrimFB is lab-specific
 d[16] = 0     # uh... I don't remember
               # 256-383 are lab-specific trims
@@ -49,6 +48,7 @@ d[13] = 0xBA6 # testpattern
 s = {}
 s[3] = 1671   # VadjN
 s[8] = 2700   # VadjP
+s[10] = 2500  # Isel
 s[11] = 1300  # VtrimFB
 # By default, we start everyone EXCEPT
 # the slow sample at 2000, and start
@@ -68,7 +68,6 @@ s[11] = 1300  # VtrimFB
 # it *fast* (so in the end it needs to be *slowed down*.
 for i in range(0,127):
     s[i+256] = 2000
-
 s[383] = 500
 
 pickle.dump( d, open(fnd,"wb"))
