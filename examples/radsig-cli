@@ -36,7 +36,7 @@ if enable_pulse:
 else:
     print ("using band %d" % (args.band) )
 
-dev.radsig.signal(enable_pulse, band=args.band)
+dev.radsig.signal(pulse=enable_pulse, band=args.band)
 
 if args.freq:
     print("Setting frequency to %g MHz" % (args.freq))
