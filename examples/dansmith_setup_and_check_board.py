@@ -125,11 +125,11 @@ for Ncalselect in range(3):
             np.savez(file_name_start+"/sinewaves_channel_"+str(i)+"_"+str(Ncalselect)+"outputs", trace=pts)    
 
 
-print("!!!! About to start the analog scan")
 
 dev.calram.zero()
 dev.calram.mode(dev.calram.CalMode.NONE) 
 dev.dma.write(3, 0) # reset transaction counter
 
-# Turn on the calibration pulser
-dev.radsig.enable
+# Turn off calibration mode
+dev.radsig.enable(False); 
+dev.calSelect(None)
