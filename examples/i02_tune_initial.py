@@ -50,3 +50,5 @@ for i in range(len(ok)):
     print("LAB",i,"tune: ", ok[i].name)
 
 dev.calib.save(dna)
+dev.radsig.enable(False); 
+dev.calSelect(None) 
