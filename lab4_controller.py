@@ -298,7 +298,7 @@ class LAB4_Controller:
                 # this should be 4480 - the total length of the phase scanner
                 # but we give it some margin
                 if param[0] == 0 or param[0] > 4470.0:
-                    print(strb, ": not present")
+                    print(strb, ": not present - stuck ", "low" if param[0] == 0 else "high")
                 else:
                     print(strb, ": width ", param[0], "from", param[1], "-",param[2])
             for strb in ['SSPin', 'SSPout']:
@@ -306,7 +306,7 @@ class LAB4_Controller:
                 # get the first pulse
                 p1 = self.scan_pulse_param(scanNum, 0)
                 if p1[0] == 0 or p1[0] > 4470.0:
-                    print(strb, ": not present")
+                    print(strb, ": not present - stuck ", "low" if p1[0] == 0 else "high")
                     continue
                 # get the second pulse, after the end of the first
                 p2 = self.scan_pulse_param(scanNum, p1[2])

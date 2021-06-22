@@ -9,6 +9,7 @@ from radsig import RadSig
 
 from bbspi import BBSPI
 from raddma import RadDMA
+from radtrig import RadTrig
 
 from spi import SPI
 
@@ -50,8 +51,8 @@ class RADIANT:
 			'DMABASE' : 0x8000,
 			'LAB4_CTRL_BASE' :   0x10000,
 			'LAB4_CALRAM_BASE' : 0x80000,
-			'PWM_BASE' : 0x30200,
-			'BM_ID' :   0x400000,
+			'TRIG_BASE' :        0x30000,
+			'BM_ID' :          0x400000,
 			'BM_DATEVERSION' : 0x400004,
 			'BM_CONTROL' :     0x40000C,
 			'BM_SPIOUTLSB' :   0x400024,
@@ -138,6 +139,9 @@ class RADIANT:
 		
 		# SPI Flash
 		self.spi = SPI(self, self.map['SPIBASE'], initialize=False)
+		
+		# Trig
+		self.trig = RadTrig(self, self.map['TRIG_BASE'])
 
 	# Issues an ICAP reboot to the FPGA.
 	# Image 0 = golden (address = 0x0)
@@ -338,30 +342,3 @@ class RADIANT:
 			dnaval = (dnaval << 1) | val
 		return dnaval
 	
-	# note: you do NOT have to do the enable thing
-	# every time. I just have it here to allow None
-	# to allow you to disable it. I guess. Like we care.
-	#
-	# you *actually* only need to write threshold to self.map['PWM_BASE'] + 0x100 + 4*channel
-	#
-	# HIGHER THRESHOLD MEANS SMALLER SIGNAL
-	# THRESHOLD HERE IS IN MILLIVOLTS CUZ I CAN
-	# ANYTHING ABOVE LIKE, 1300 mV IS POINTLESS
-	def thresh(self, channel, threshInMv):
-		oeb = bf(self.read(self.map['PWM_BASE']+0x4))
-		if threshInMv is None:
-			oeb[channel] = 1
-			self.write(self.map['PWM_BASE']+0x4, int(oeb))
-			return
-		else:
-			# magic value here is (1<<24)-1, it's a 24-bit output
-			# no, you don't really need 150 microvolt resolution
-			value = (threshInMv/2500.)*16777215
-			self.write(self.map['PWM_BASE']+0x100+4*channel, int(value))
-			# this is the not needed part: you can just enable all of the
-			# channels you want right at the start and never bother with
-			# this.
-			if oeb[channel]:
-				oeb[channel] = 0
-				self.write(self.map['PWM_BASE']+0x4, int(oeb))
-				
