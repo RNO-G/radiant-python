@@ -531,7 +531,7 @@ class LAB4_Controller:
                 '''turn off internal Vadjn buffer bias'''
                 self.l4reg(lab4, 2, 0)      #PCLK-1=2 : VanN
                 
-                calFbs = self.calibrations.read_vtrimfb(self.dev.dna())
+                calFbs = None
                 if calFbs == None:
                     print("Using default Vtrimfb of 1300.")
                     self.l4reg(lab4, 11, 1300)
