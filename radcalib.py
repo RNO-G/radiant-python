@@ -108,6 +108,14 @@ class RadCalib:
     # the slow sample is tunable
     def initialTune(self, lab, maxTries=50):
         # Start off by dead-reckoning the initial target
+        # Start off by trying to use the DLL.
+        if self.calib['specifics'][lab][2] == 1024:
+            print("Defaults say to NOT use the DLL.")
+            seamTuneNum = 3
+        else:
+            print("Defaults say to use the DLL.")
+            seamTuneNum = 11
+        
         self.dev.monSelect(lab)
         self.dev.labc.set_tmon(lab, self.dev.labc.tmon['SSPin'])
         # SSPin is *supposed* to be around 600 samples long in an ideal world,
@@ -126,6 +134,14 @@ class RadCalib:
         width = self.dev.labc.scan_width(scan)
         curTry = 0
         print("Initial SSPin width:", width)
+        if width > 1800:
+            # OK, this is bullcrap, the DLL must be broken on this guy.
+            self.calib['specifics'][lab][2] = 1024
+            print("DLL seems broken, switching to VadjN")
+            seamTuneNum = 3
+            self.dev.labc.update(lab)
+            width = self.dev.labc.scan_width(scan)
+            
         while width > 1000 and curTry < maxTries:
             newAvg = 0
             for i in range(257, 383):
@@ -195,9 +211,9 @@ class RadCalib:
                     delta += 8
                 if seamSample < 290:
                     delta = -1*delta
-                cur = self.calib['specifics'][lab][11]
-                print("Feedback LAB%d (%f): %d -> %d" % (lab, seamSample, cur, cur+delta))
-                self.calib['specifics'][lab][11] = cur+delta
+                cur = self.calib['specifics'][lab][seamTuneNum]
+                print("Feedback LAB%d (%f): %d -> %d (register %d)" % (lab, seamSample, cur, cur+delta, seamTuneNum))
+                self.calib['specifics'][lab][seamTuneNum] = cur+delta
             elif slowSample > 290:
                 # We ONLY DO THIS if the seam sample's close.
                 # This is because the slow sample changes with the seam timing like
@@ -232,7 +248,7 @@ class RadCalib:
             seamSample = t[lab][0]
             slowSample = t[lab][127]
             curTry = curTry + 1
-        print("Ending seam sample :", t[lab][0],"feedback",self.calib['specifics'][lab][11])
+        print("Ending seam sample :", t[lab][0],"feedback",self.calib['specifics'][lab][seamTuneNum],"using register ",seamTuneNum)
         print("Ending slow sample :", t[lab][127],"average earlier trims", oldavg)
         return True
         
