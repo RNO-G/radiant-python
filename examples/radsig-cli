@@ -13,7 +13,7 @@ onoff.add_argument("--off", help="Turn off the signal generator", action="store_
 parser.add_argument('--freq', help="Set frequency in MHz", type=float) 
 parser.add_argument('--pulse', help="The pulse mode", action="store_true") 
 parser.add_argument('--port', help="The serial port", default="/dev/ttyO5") 
-parser.add_argument('--band', help='The bandpass. 0: 50-100 MHz, 1: wonky, 2: 600- MHz, 3: wonky', type=int, default=0, choices=range(0,3))
+parser.add_argument('--band', help='The bandpass. 0: 50-100 MHz, 1: wonky, 2: 600- MHz, 3: wonky', type=int, default=2, choices=range(0,3))
 
 args = parser.parse_args() 
 
