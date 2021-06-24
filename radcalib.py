@@ -135,13 +135,21 @@ class RadCalib:
         curTry = 0
         print("Initial SSPin width:", width)
         if width > 1800:
-            # OK, this is bullcrap, the DLL must be broken on this guy.
-            self.calib['specifics'][lab][2] = 1024
-            print("DLL seems broken, switching to VadjN")
-            seamTuneNum = 3
-            self.dev.labc.update(lab)
+
+            # try hack 
+            self.dev.labc.l4reg(lab,2,1024)
+            time.sleep(0.5) 
             width = self.dev.labc.scan_width(scan)
-            
+            self.calib['specifics'][lab][2] = 1024
+            print("SSPin width after reg2 hack:", width)
+
+            if width > 1800:
+                # OK, this is bullcrap, the DLL must be broken on this guy.
+                print("DLL seems broken, switching to VadjN")
+                seamTuneNum = 3
+                self.dev.labc.update(lab)
+                width = self.dev.labc.scan_width(scan)
+                
         while width > 1000 and curTry < maxTries:
             newAvg = 0
             for i in range(257, 383):
@@ -204,13 +212,18 @@ class RadCalib:
                 # change by 15 otherwise. Convergence here is slow, but we're trying to 
                 # avoid bouncing, and we're also trying to avoid the negative case.
                 diff = np.abs(seamSample - 312.5)
-                delta = 3
-                if diff > 50:
-                    delta += 4
-                if diff > 100:
-                    delta += 8
-                if seamSample < 290:
-                    delta = -1*delta
+                if seamTuneNum == 3: 
+                    delta=1
+                else:
+                    delta = 3
+                    if diff > 50:
+                        delta += 4
+                    if diff > 100:
+                        delta += 8
+                    if seamSample < 290:
+                        delta = -1*delta
+                    if seamTuneNum ==3: 
+                        delta = -1*delta
                 cur = self.calib['specifics'][lab][seamTuneNum]
                 print("Feedback LAB%d (%f): %d -> %d (register %d)" % (lab, seamSample, cur, cur+delta, seamTuneNum))
                 self.calib['specifics'][lab][seamTuneNum] = cur+delta
