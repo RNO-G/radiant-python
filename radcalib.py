@@ -16,6 +16,8 @@
 import numpy as np
 import pickle
 from os import path
+import os 
+import random
 import time
 
 class RadCalib:
@@ -28,7 +30,7 @@ class RadCalib:
         self.channelMask = 0
         self.numLabs=numLabs
         self.calibPath = calibPath
-        os.mkdirs(calibPath, exist_ok=True) 
+        os.makedirs(calibPath, exist_ok=True) 
         # Build up a generic RADIANT: 24x generic parameters, all independent
         generic = pickle.load(open(genericFn, "rb"))
         self.generic = generic.copy()
@@ -107,7 +109,7 @@ class RadCalib:
     # assumes *nothing* other than the LAB4's been defaulted and testpatern mode is off
     # The initial tune finds the trim feedback and shifts all the trims to ensure
     # the slow sample is tunable
-    def initialTune(self, lab, maxTries=50):
+    def initialTune(self, lab, maxTries=50, tryReg3ForFailedDLL=True):
         # Start off by dead-reckoning the initial target
         # Start off by trying to use the DLL.
         if self.calib['specifics'][lab][2] == 1024:
@@ -117,6 +119,10 @@ class RadCalib:
             print("Defaults say to use the DLL.")
             seamTuneNum = 11
         
+
+        initialState = self.calib['specifics'][lab] 
+        self.dev.labc.update(lab)  # make sure we are using the initial state
+
         self.dev.monSelect(lab)
         self.dev.labc.set_tmon(lab, self.dev.labc.tmon['SSPin'])
         # SSPin is *supposed* to be around 600 samples long in an ideal world,
@@ -137,20 +143,17 @@ class RadCalib:
         print("Initial SSPin width:", width)
         if width > 1800:
 
+            print("DLL seems broken, disabling") 
             # try hack 
             self.dev.labc.l4reg(lab,2,1024)
             time.sleep(0.5) 
             width = self.dev.labc.scan_width(scan)
             self.calib['specifics'][lab][2] = 1024
-            print("SSPin width after reg2 hack:", width)
-
-            if width > 1800:
-                # OK, this is bullcrap, the DLL must be broken on this guy.
-                print("DLL seems broken, switching to VadjN")
-                seamTuneNum = 3
-                self.dev.labc.update(lab)
-                width = self.dev.labc.scan_width(scan)
-                
+            self.dev.labc.update(lab)
+            print("SSPin width after disabling DLL:", width)
+            if tryReg3ForFailedDLL:
+                seamTuneNum =3 
+                print("Switching to VadjN")
         while width > 1000 and curTry < maxTries:
             newAvg = 0
             for i in range(257, 383):
@@ -165,8 +168,10 @@ class RadCalib:
             curTry = curTry + 1
         
         if curTry == maxTries:
-            print("initial tune failed!")
-            return False
+           print("initial tune failed! Restoring initial state.")
+           self.calib['specifics'][lab] = initialState
+           self.dev.labc.update(lab)
+           return False
         # Put its quad into calibration mode
         self.dev.calSelect(int(lab/4))
         self.dev.radsig.enable(False)
@@ -201,9 +206,11 @@ class RadCalib:
         oldavg = oldavg/126
         print("Starting average trim:", oldavg)
         curTry = 0
-        while slowSample > 290 or seamSample > 350 or seamSample < 290:
+        while slowSample > 290 or seamSample > 350 or (seamSample < 290 and oldavg < 2400):
             if curTry >= maxTries:
-                print("initial tune failed!")
+                print("initial tune failed! Restoring initial state.")
+                self.calib['specifics'][lab] = initialState
+                self.dev.labc.update(lab)
                 return False
             # Fix the seam if it's gone off too much.
             if seamSample < 290 or seamSample > 350:
@@ -226,9 +233,14 @@ class RadCalib:
                     if seamTuneNum ==3: 
                         delta = -1*delta
                 cur = self.calib['specifics'][lab][seamTuneNum]
-                print("Feedback LAB%d (%f): %d -> %d (register %d)" % (lab, seamSample, cur, cur+delta, seamTuneNum))
-                self.calib['specifics'][lab][seamTuneNum] = cur+delta
-            elif slowSample > 290:
+                newVal = cur+delta; 
+                if newVal < 500: 
+                    print("hmm feedback got to small. let's try something random!")
+                    newVal = random.randrange(800,1200) 
+                    time.sleep(2); 
+                print("Feedback LAB%d (%f): %d -> %d (register %d)" % (lab, seamSample, cur, newVal, seamTuneNum))
+                self.calib['specifics'][lab][seamTuneNum] = newVal
+            elif slowSample > 290 and oldavg <2400:
                 # We ONLY DO THIS if the seam sample's close.
                 # This is because the slow sample changes with the seam timing like
                 # everything else (actually a little more)
@@ -249,6 +261,17 @@ class RadCalib:
                 oldavg = oldavg/126
                 print("Slowing early samples: LAB%d (%f): %d -> %d" % (lab, slowSample, oldavg, oldavg + 25))
                 oldavg = oldavg + 25
+            elif slowSample < 250 and oldavg >1800:
+               # Trim updating is a pain, sigh.
+                oldavg = 0
+                for i in range(257, 383):
+                    old = self.calib['specifics'][lab][i]
+                    oldavg += old                    
+                    self.calib['specifics'][lab][i] = old - 25
+                oldavg = oldavg/126
+                print("Speeding early samples: LAB%d (%f): %d -> %d" % (lab, slowSample, oldavg, oldavg - 25))
+                oldavg = oldavg - 25
+  
             # now update
             print("Updating...", end='', flush=True)
             self.dev.labc.update(lab)
