@@ -28,6 +28,7 @@ class RadCalib:
         self.channelMask = 0
         self.numLabs=numLabs
         self.calibPath = calibPath
+        os.mkdirs(calibPath, exist_ok=True) 
         # Build up a generic RADIANT: 24x generic parameters, all independent
         generic = pickle.load(open(genericFn, "rb"))
         self.generic = generic.copy()
