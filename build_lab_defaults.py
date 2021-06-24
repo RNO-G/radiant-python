@@ -18,7 +18,7 @@ d = {}
 
 d[0] = 1024   # Vboot
 d[1] = 1024   # Vbsx
-d[2] = 0      # VanN  : note this is DLL ON MODE!!
+              # VanN  is lab-specific: note this is DLL ON MODE!!
               # VadjN is lab-specific (...maybe)
 d[4] = 1024   # Vbs
 d[5] = 1100   # Vbias
@@ -46,6 +46,7 @@ d[13] = 0xBA6 # testpattern
 
 # LAB-specific defaults
 s = {}
+s[2] = 0      # VanN. note this is DLL ON MODE!!
 s[3] = 1671   # VadjN
 s[8] = 2700   # VadjP
 s[10] = 2500  # Isel
