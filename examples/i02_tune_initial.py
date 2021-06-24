@@ -33,21 +33,25 @@ dev.labc.testpattern_mode(False)
 
 # things are weird, let's try a different tactic
 ok = []
-for i in range(24):
-    dev.labc.default(i)
-    matchok = dev.labc.automatch_phab(i)
-    if not(matchok):
-        # give the DLL some time to settle?
-        time.sleep(0.5)
-        tuneok = dev.calib.initialTune(i)
-        if tuneok:
-            ok.append(TuneResult.SUCCESS)
-        else:
-            ok.append(TuneResult.TUNE_FAIL)
-    else:
-        ok.append(TuneResult.AUTOMATCH_FAIL)
-for i in range(len(ok)):
-    print("LAB",i,"tune: ", ok[i].name)
+phaberror = {}
+tuneok = {}
+for quad in range(3): # loop over quads
+    labs = [int(4 * quad + i) for i in range(4)] + [int(4 * quad + i + 12) for i in range(4)]
+
+    for lab in labs:
+        dev.labc.default(lab)
+        phaberror[lab] = dev.labc.automatch_phab(lab)
+
+    # give the DLL some time to settle?
+    time.sleep(0.5)
+    tuneok_quad = dev.calib.initialTune(quad)
+    for key in tuneok_quad:
+        tuneok[key] = tuneok_quad[key]
+        
+print("Final result")
+for key in tuneok:
+    print("LAB",key,"tune:\t", tuneok[key], "\t phab err:\t", phaberror[key])
+    
 
 dev.calib.save(dna)
 dev.radsig.enable(False); 
