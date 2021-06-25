@@ -14,5 +14,5 @@ class BBSPI:
         self.xfer2 = self.spi.xfer2
         self.close = self.spi.close
         
-    def __del__(self):
-        GPIO.output("P8_26", GPIO.HIGH)
+#    def __del__(self):
+#        GPIO.output("P8_26", GPIO.HIGH)

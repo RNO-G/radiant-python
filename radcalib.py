@@ -16,6 +16,8 @@
 import numpy as np
 import pickle
 from os import path
+import os
+import random
 import time
 
 class RadCalib:
@@ -28,6 +30,7 @@ class RadCalib:
         self.channelMask = 0
         self.numLabs=numLabs
         self.calibPath = calibPath
+        os.makedirs(calibPath, exist_ok=True) 
         # Build up a generic RADIANT: 24x generic parameters, all independent
         generic = pickle.load(open(genericFn, "rb"))
         self.generic = generic.copy()
@@ -106,7 +109,7 @@ class RadCalib:
     # assumes *nothing* other than the LAB4's been defaulted and testpatern mode is off
     # The initial tune finds the trim feedback and shifts all the trims to ensure
     # the slow sample is tunable
-    def initialTune(self, quad, maxTries=50):
+    def initialTune(self, quad, maxTries=5, tryReg3ForFailedDLL=True):
         # Got to make sure that the labs selected are in the right quads
         # quad 0 and 3
         # quad 1 and 4
@@ -134,6 +137,7 @@ class RadCalib:
         # scan.
 
         seamTuneNum = [0 for i in range(24)]
+        initialStates = self.calib['specifics']
         
         for lab in labs:
             # Start off by trying to use the DLL.
@@ -157,9 +161,17 @@ class RadCalib:
                 # OK, this is bullcrap, the DLL must be broken on this guy.
                 self.calib['specifics'][lab][2] = 1024
                 print("Lab %i) DLL seems broken, switching to VadjN" % lab)
-                seamTuneNum[lab] = 3
-                self.dev.labc.update(lab)
+                
+                # try hack 
+                self.dev.labc.l4reg(lab,2,1024)
+                time.sleep(0.5) 
                 width = self.dev.labc.scan_width(scan)
+                self.calib['specifics'][lab][2] = 1024
+                self.dev.labc.update(lab)
+                print("Lab %i) SSPin width after disabling DLL:" % lab, width)
+                if tryReg3ForFailedDLL:
+                    seamTuneNum[lab] =3 
+                    print("Lab %i) Switching to VadjN" % lab)
             while width > 1000 and curTry < maxTries:
                 newAvg = 0
                 for i in range(257, 383):
@@ -174,7 +186,9 @@ class RadCalib:
                 curTry = curTry + 1
         
             if curTry == maxTries:
-                print("Lab %i) initial tune failed!" % lab)
+                print("Lab %i) initial tune failed! Restoring initial state." % lab)
+                self.calib['specifics'][lab] = initialStates[lab]
+                self.dev.labc.update(lab)
                 return_matrix[lab] = False
         
         # Put its quad into calibration mode
@@ -221,7 +235,8 @@ class RadCalib:
         
         while(np.any(np.array(slowSamples)[return_matrix] > 290) or
               np.any(np.array(seamSamples)[return_matrix] > 350) or
-              np.any(np.array(seamSamples)[return_matrix] < 290)):
+              (np.any(np.array(seamSamples)[return_matrix] < 290) and
+               np.any(np.array(oldavgs)[return_matrix] < 2400))):
 
             print("Top of loop. The NTries are: ", end = '')
             for lab in labs:
@@ -235,7 +250,9 @@ class RadCalib:
                 
                 if slowSamples[lab] > 290 or seamSamples[lab] > 350 or seamSamples[lab] < 290:
                     if curTrys[lab] >= maxTries:
-                        print("Lab %i) initial tune failed!" % lab)
+                        print("Lab %i) initial tune failed! Restoring initial state." % lab)
+                        self.calib['specifics'][lab] = initialStates[lab]
+                        self.dev.labc.update(lab)
                         return_matrix[lab] = False
                         continue
                     
@@ -247,17 +264,27 @@ class RadCalib:
                         # change by 15 otherwise. Convergence here is slow, but we're trying to 
                         # avoid bouncing, and we're also trying to avoid the negative case.
                         diff = np.abs(seamSamples[lab] - 312.5)
-                        delta = 3
-                        if diff > 50:
-                            delta += 4
-                        if diff > 100:
-                            delta += 8
-                        if seamSamples[lab] < 290:
-                            delta = -1*delta
+                        if(seamTuneNum[lab] == 3):
+                            delta = 1
+                        else:
+                            delta = 3
+                            if diff > 50:
+                                delta += 4
+                            if diff > 100:
+                                delta += 8
+                            if seamSamples[lab] < 290:
+                                delta = -1*delta
+                            if seamTuneNum[lab] == 3:
+                                delta = -1*delta
                         cur = self.calib['specifics'][lab][seamTuneNum[lab]]
+                        newVal = cur+delta; 
+                        if newVal < 500: 
+                            print("Lab %i) hmm feedback got to small. let's try something random!" % lab)
+                            newVal = random.randrange(800,1200) 
+                            time.sleep(2); 
                         print("Lab %i) Feedback LAB%d (%f): %d -> %d (register %d)" % (lab, lab, seamSamples[lab], cur, cur+delta, seamTuneNum[lab]))
-                        self.calib['specifics'][lab][seamTuneNum[lab]] = cur+delta
-                    elif slowSamples[lab] > 290:
+                        self.calib['specifics'][lab][seamTuneNum[lab]] = newVal
+                    elif slowSamples[lab] > 290 and oldavgs[lab] < 2400 :
                         # We ONLY DO THIS if the seam sample's close.
                         # This is because the slow sample changes with the seam timing like
                         # everything else (actually a little more)
@@ -278,9 +305,19 @@ class RadCalib:
                         oldavgs[lab] = oldavgs[lab]/126
                         print("Lab %i) Slowing early samples: LAB%d (%f): %d -> %d" % (lab, lab, slowSamples[lab], oldavgs[lab], oldavgs[lab] + 25))
                         oldavgs[lab] = oldavgs[lab] + 25
-                    # now update
-                    print("Lab %i) Updating..." % lab)
-                    self.dev.labc.update(lab)
+                    elif slowSamples[lab] < 250 and oldavgs[lab] > 1800:
+                        # Trim updating is a pain, sigh.
+                        oldavgs[lab] = 0
+                        for i in range(257, 383):
+                            old = self.calib['specifics'][lab][i]
+                            oldavgs[lab] += old                    
+                            self.calib['specifics'][lab][i] = old - 25
+                        oldavgs[lab] = oldavgs[lab]/126
+                        print("Lab %i) Speeding early samples: LAB%d (%f): %d -> %d" % (lab, lab, slowSample, oldavgs[lab], oldavgs[lab] - 25))
+                        oldavgs[lab] = oldavgs[lab] - 25
+                # now update
+                print("Lab %i) Updating..." % lab)
+                self.dev.labc.update(lab)
 
             print("Done with all labs in loop.")
 
