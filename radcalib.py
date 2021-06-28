@@ -109,7 +109,7 @@ class RadCalib:
     # assumes *nothing* other than the LAB4's been defaulted and testpatern mode is off
     # The initial tune finds the trim feedback and shifts all the trims to ensure
     # the slow sample is tunable
-    def initialTune(self, lab, maxTries=50, tryReg3ForFailedDLL=True):
+    def initialTune(self, lab, maxTries=50, freq=510,  tryReg3ForFailedDLL=True):
         # Start off by dead-reckoning the initial target
         # Start off by trying to use the DLL.
         if self.calib['specifics'][lab][2] == 1024:
@@ -153,6 +153,7 @@ class RadCalib:
             print("SSPin width after disabling DLL:", width)
             if tryReg3ForFailedDLL:
                 seamTuneNum =3 
+                maxTries*=3  
                 print("Switching to VadjN")
         while width > 1000 and curTry < maxTries:
             newAvg = 0
@@ -175,15 +176,15 @@ class RadCalib:
         # Put its quad into calibration mode
         self.dev.calSelect(int(lab/4))
         self.dev.radsig.enable(False)
-        self.dev.radsig.signal(pulse=False, band = 2)
+        self.dev.radsig.signal(pulse=False, band = (2 if freq > 100 else 0))
         # update the pedestals
         self.updatePedestals()
         # turn on the sine wave
         self.dev.radsig.enable(True)
-        self.dev.radsig.setFrequency(510.)
+        self.dev.radsig.setFrequency(freq)
         # get the initial time loop
 
-        t = self.getTimeRun(510e6, verbose=False)
+        t = self.getTimeRun(freq*1e6, verbose=False)
         
         print("Initial seam/slow sample timing:", t[lab][0], t[lab][127])
         # Check the times to see if we're *so* far off that
@@ -234,7 +235,7 @@ class RadCalib:
                         delta = -1*delta
                 cur = self.calib['specifics'][lab][seamTuneNum]
                 newVal = cur+delta; 
-                if newVal < 500: 
+                if newVal < 400: 
                     print("hmm feedback got to small. let's try something random!")
                     newVal = random.randrange(800,1200) 
                     time.sleep(2); 
@@ -277,7 +278,7 @@ class RadCalib:
             self.dev.labc.update(lab)
             print("done")
             # fetch times again
-            t = self.getTimeRun(510e6, verbose=False)
+            t = self.getTimeRun(freq*1e6, verbose=False)
             print("Seam/slow sample timing now:", t[lab][0], t[lab][127])
             if np.sum(t[lab][1:128]) > 39900:
                 print("Feedback LAB%d way off (%f): %d -> %d" % (lab, 40000-np.sum(t[lab][1:128]), t[lab][0], -1*t[lab][0]))
