@@ -33,7 +33,8 @@ Additional notes 01/07/2022
 Procedure is something like: 
 
 1) Put the radiant in bootloader mode
-python examples/radiant_to_bootloader.py  # this puts the RADIANT in bootloader mode
+
+   python examples/radiant_to_bootloader.py  # this puts the RADIANT in bootloader mode
 
 
 2) Build the flash image under /dev/shm. I've been putting the firmware under
@@ -48,10 +49,17 @@ set golden to upgrade.
 3) you need to make sure the spi enable is on, one way to do this is, in another terminal, open a python shell and  import enable_spi.py 
 
 4) Flash the image you want, either upgrade or golden (or, you want to run both) 
-   flash_image.sh upgrade  # flash upgrade
-   flash_image.sh golden  #flash golden
 
-5) python examples/radiant_to_golden.py or examples/radiant_to_upgrade.py 
+    flash_image.sh upgrade  # flash upgrade
+    flash_image.sh golden  #flash golden
+
+5) Take the RADIANT out of bootloader mode 
+
+  python examples/radiant_to_golden.py 
+
+  or 
+  
+  examples/radiant_to_upgrade.py 
 
 
 
