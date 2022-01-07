@@ -42,14 +42,14 @@ actual file names, for the 2021 season, golden is radiant_top_v0r2p30.mcs and
 upgrade is radiant_top_v0r3p3.mcs though from the comfort of our lab, we can
 set golden to upgrade. 
 
-examples/build_image ~/prog/golden.mcs ~/prog/upgrade.mcs ~/prog/bootloader.bin   
+    examples/build_image.sh ~/prog/golden.mcs ~/prog/upgrade.mcs ~/prog/bootloader.bin   
 
 
 3) you need to make sure the spi enable is on, one way to do this is, in another terminal, open a python shell and  import enable_spi.py 
 
-Flash the image you want, either upgrade or golden (or, you want to run both) 
-4a) flash_image.sh upgrade 
-4b) flash_image.sh golden 
+4) Flash the image you want, either upgrade or golden (or, you want to run both) 
+   flash_image.sh upgrade  # flash upgrade
+   flash_image.sh golden  #flash golden
 
 5) python examples/radiant_to_golden.py or examples/radiant_to_upgrade.py 
 
