@@ -1,5 +1,5 @@
 
-class RADJTag: 
+class RadJTAG: 
 
     def __init__(self, dev): 
 
