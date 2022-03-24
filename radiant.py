@@ -6,6 +6,7 @@ from lab4_calram import LAB4_Calram
 
 from radcalib import RadCalib
 from radsig import RadSig
+from radjtag import RadJTAG
 
 from bbspi import BBSPI
 from raddma import RadDMA
@@ -53,6 +54,7 @@ class RADIANT:
 			'PWM_BASE' : 0x30200,
 			'BM_ID' :   0x400000,
 			'BM_DATEVERSION' : 0x400004,
+			'BM_STATUS' : 0x400008,
 			'BM_CONTROL' :     0x40000C,
 			'BM_SPIOUTLSB' :   0x400024,
 			'BM_SPIOUTMSB' :   0x400028,
@@ -103,6 +105,7 @@ class RADIANT:
 		# Will be loaded when a DNA's present.
 		# If we try to use without a DNA, use lab4generic_3G2.p's parameters.
 		self.calib = RadCalib(self, "lab4generic_3G2.p")
+		self.jtag = RadJTAG(self)
 			
 		# create the CPLDs. These are really only for JTAG configuration.
 		self.cpl = RadCPLD(self, self.map['LJTAG'], self.cpldJtag)
@@ -365,3 +368,6 @@ class RADIANT:
 				oeb[channel] = 0
 				self.write(self.map['PWM_BASE']+0x4, int(oeb))
 				
+
+
+
