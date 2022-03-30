@@ -324,7 +324,7 @@ class RADIANT:
 		bver = self.DateVersion(self.read(self.map['BM_DATEVERSION']))
 		print("Board Manager:", bid, bver)
 
-		status = self.read(self.map(['BM_STATUS']))
+		status = self.read(self.map['BM_STATUS'])
 		print("  STATUS: ", hex(status))
 	
 		fid = str4(self.read(self.map['FPGA_ID']))
