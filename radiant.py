@@ -328,12 +328,14 @@ class RADIANT:
 		print("  STATUS: ", hex(status))
 	
 		fid = str4(self.read(self.map['FPGA_ID']))
+		print("FPGA:", fid, end=' ') 
 		if fid == "RDNT":
 			fdv = self.DateVersion(self.read(self.map['FPGA_DATEVERSION']))
+			print(fdv, end=' ') 
 			dna = self.dna()
-			print("FPGA:", fid, fdv, hex(dna))
+			print(dna) 
 		else:
-			print("FPGA:", fid)
+			print('') 
 		
 	def dna(self):
 		self.write(self.map['DNA'], 0x80000000)
