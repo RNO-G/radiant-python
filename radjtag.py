@@ -67,6 +67,7 @@ class RadJTAG:
         self.clock(0,0)
         self.clock(1,0)
         self.clock(0,0)
+        self.clock(0,0)
         idcode = 0
         for i in range(32):
             if self.tdo(): 
