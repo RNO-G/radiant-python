@@ -320,6 +320,13 @@ class RADIANT:
 			id += chr(num & 0xFF)
 			return id
 			
+		bid = str4(self.read(self.map['BM_ID']))
+		bver = self.DateVersion(self.read(self.map['BM_DATEVERSION']))
+		print("Board Manager:", bid, bver)
+
+		status = self.read(self.map(['BM_STATUS']))
+		print("  STATUS: ", hex(status))
+	
 		fid = str4(self.read(self.map['FPGA_ID']))
 		if fid == "RDNT":
 			fdv = self.DateVersion(self.read(self.map['FPGA_DATEVERSION']))
@@ -327,10 +334,7 @@ class RADIANT:
 			print("FPGA:", fid, fdv, hex(dna))
 		else:
 			print("FPGA:", fid)
-		bid = str4(self.read(self.map['BM_ID']))
-		bver = self.DateVersion(self.read(self.map['BM_DATEVERSION']))
-		print("Board Manager:", bid, bver)
-			
+		
 	def dna(self):
 		self.write(self.map['DNA'], 0x80000000)
 		dnaval=0
