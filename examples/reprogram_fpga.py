@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 
 from radiant import RADIANT
+import sys
+import getopt
 
 
 def main(argv):
