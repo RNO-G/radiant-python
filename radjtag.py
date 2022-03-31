@@ -109,6 +109,7 @@ class RadJTAG:
         self.clock(1,0) 
         self.clock(0,0) 
         self.in_rti = True 
+        return val
 
 
     def enumerate(self): 
