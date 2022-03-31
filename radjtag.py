@@ -102,7 +102,7 @@ class RadJTAG:
         for i in range(nbits): 
             if self.tdo(): 
                 val |= (1 << i) 
-                self.clock(i == nbits-1, val_in & (1 << i))
+            self.clock(i == nbits-1, val_in & (1 << i))
 
         # now go back to rti 
         # already in exit1-dr
