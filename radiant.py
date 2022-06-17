@@ -7,6 +7,7 @@ from lab4_calram import LAB4_Calram
 from radcalib import RadCalib
 from radsig import RadSig
 from radjtag import RadJTAG
+import os.path
 
 from bbspi import BBSPI
 from raddma import RadDMA
@@ -104,7 +105,7 @@ class RADIANT:
 		# create the calibration interface. Starts off being unloaded.
 		# Will be loaded when a DNA's present.
 		# If we try to use without a DNA, use lab4generic_3G2.p's parameters.
-		self.calib = RadCalib(self, "lab4generic_3G2.p")
+		self.calib = RadCalib(self, os.path.dirname(__file__)+"/lab4generic_3G2.p")
 		self.jtag = RadJTAG(self)
 			
 		# create the CPLDs. These are really only for JTAG configuration.
