@@ -3,11 +3,13 @@
 from radiant import RADIANT
 from enum import Enum
 import time
+import sys 
 
 class TuneResult(Enum):
     SUCCESS = 0
     AUTOMATCH_FAIL = 1
     TUNE_FAIL = 2
+    SKIPPED = 3
 
 # This is an *incredibly* aggressive way of doing this.
 # If something goes wrong, it'll... just keep trying for like, 50 attempts.
@@ -31,10 +33,21 @@ dev.calib.load(dna)
 dev.labc.reg_clr()
 dev.labc.testpattern_mode(False)
 
+mask = 0xffffff 
+
+if len(sys.argv) > 1: 
+    mask = int(sys.argv[1],0)
+
 # things are weird, let's try a different tactic
 ok = []
 for i in range(24):
     dev.labc.default(i)
+
+    if not (mask & (1 <<i)): 
+        print("Skipping channel ",i)
+        ok.append(TuneResult.SKIPPED)
+        continue 
+
     matchok = dev.labc.automatch_phab(i)
     if not(matchok):
         # give the DLL some time to settle?
