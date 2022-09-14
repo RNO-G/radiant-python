@@ -23,16 +23,16 @@ class TuneResult(Enum):
 # Pedestal is at desired/attenuators set right (really!! run analog_setup.py)
 
 dev = RADIANT("/dev/ttyO5")
-dev.labc.stop()
-dev.identify()
-dev.calib.resetCalib()
+#dev.labc.stop()
+#dev.identify()
+#dev.calib.resetCalib()
 
 dna = dev.dna()
-dev.calib.load(dna)
-
-dev.labc.reg_clr()
-dev.labc.testpattern_mode(False)
-
+#dev.calib.load(dna)
+#
+#dev.labc.reg_clr()
+#dev.labc.testpattern_mode(False)
+#
 mask = 0xffffff 
 
 if len(sys.argv) > 1: 
@@ -41,13 +41,13 @@ if len(sys.argv) > 1:
 # things are weird, let's try a different tactic
 ok = []
 for i in range(24):
-    dev.labc.default(i)
 
     if not (mask & (1 <<i)): 
         print("Skipping channel ",i)
         ok.append(TuneResult.SKIPPED)
         continue 
 
+    dev.labc.default(i)
     matchok = dev.labc.automatch_phab(i)
     if not(matchok):
         # give the DLL some time to settle?
