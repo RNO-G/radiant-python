@@ -48,7 +48,15 @@ for i in range(24):
         continue 
 
     dev.labc.default(i)
+    time.sleep(0.1) 
     matchok = dev.labc.automatch_phab(i)
+
+    nattempts = 0
+    while matchok and nattempts < 3: 
+        matchok = dev.labc.automatch_phab(i)
+        time.sleep(0.1) 
+        nattempts+=0 
+
     if not(matchok):
         # give the DLL some time to settle?
         time.sleep(0.5)
@@ -58,6 +66,7 @@ for i in range(24):
         else:
             ok.append(TuneResult.TUNE_FAIL)
     else:
+        print("automatch_phab failed a bunch of times...") 
         ok.append(TuneResult.AUTOMATCH_FAIL)
 for i in range(len(ok)):
     print("LAB",i,"tune: ", ok[i].name)
