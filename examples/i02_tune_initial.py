@@ -44,6 +44,9 @@ if do_reset:
             dev.labc.automatch_phab(i) 
 
 
+else: 
+    dev.calib.load(dna)
+
 
 
 
