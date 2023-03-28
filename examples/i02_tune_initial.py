@@ -55,7 +55,7 @@ for i in range(24):
     while matchok and nattempts < 3: 
         matchok = dev.labc.automatch_phab(i)
         time.sleep(0.1) 
-        nattempts+=0 
+        nattempts+=1 
 
     if not(matchok):
         # give the DLL some time to settle?
