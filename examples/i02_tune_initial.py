@@ -26,17 +26,35 @@ dev = RADIANT("/dev/ttyRADIANT")
 
 dna = dev.dna()
 mask = 0xffffff 
+do_reset = False
 if len(sys.argv) > 1: 
     mask = int(sys.argv[1],0)
 
+if len(sys.argv) > 2: 
+    do_reset = bool(sys.argv[2]) 
 # things are weird, let's try a different tactic
 ok = []
+
+if do_reset: 
+    for i in range(24): 
+        if (mask & (1 <<i)): 
+            dev.labc.default(i) 
+    for i in range(24): 
+        if (mask & (1 <<i)): 
+            dev.labc.automatch_phab(i) 
+
+
+
+
+
 for i in range(24):
 
     if not (mask & (1 <<i)): 
         print("Skipping channel ",i)
         ok.append(TuneResult.SKIPPED)
         continue 
+
+
 
     tuneok = dev.calib.initialTune(i)
     if tuneok:
