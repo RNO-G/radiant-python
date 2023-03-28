@@ -22,7 +22,7 @@ class TuneResult(Enum):
 # CPLDs are programmed (run radcpldprog.py)
 # Pedestal is at desired/attenuators set right (really!! run analog_setup.py)
 
-dev = RADIANT("/dev/ttyRADIANT")
+dev = RADIANT("/dev/ttyRadiant")
 
 dna = dev.dna()
 mask = 0xffffff 
