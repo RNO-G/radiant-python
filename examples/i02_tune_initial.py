@@ -25,6 +25,7 @@ class TuneResult(Enum):
 dev = RADIANT("/dev/ttyRadiant")
 
 dna = dev.dna()
+dev.calib.load(dna)
 mask = 0xffffff 
 do_reset = False
 if len(sys.argv) > 1: 
@@ -37,6 +38,7 @@ ok = []
 
 if do_reset: 
     for i in range(24): 
+        dev.calib.lab4_resetSpecifics(i) 
         if (mask & (1 <<i)): 
             dev.labc.default(i) 
     for i in range(24): 
