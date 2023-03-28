@@ -48,13 +48,13 @@ for i in range(24):
         continue 
 
     dev.labc.default(i)
-    time.sleep(0.1) 
+    time.sleep(0.5) 
     matchok = dev.labc.automatch_phab(i)
 
     nattempts = 0
     while matchok and nattempts < 3: 
+        time.sleep(0.5) 
         matchok = dev.labc.automatch_phab(i)
-        time.sleep(0.1) 
         nattempts+=1 
 
     if not(matchok):
