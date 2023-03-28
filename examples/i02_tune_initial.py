@@ -22,19 +22,10 @@ class TuneResult(Enum):
 # CPLDs are programmed (run radcpldprog.py)
 # Pedestal is at desired/attenuators set right (really!! run analog_setup.py)
 
-dev = RADIANT("/dev/ttyO5")
-#dev.labc.stop()
-#dev.identify()
-#dev.calib.resetCalib()
+dev = RADIANT("/dev/ttyRADIANT")
 
 dna = dev.dna()
-#dev.calib.load(dna)
-#
-#dev.labc.reg_clr()
-#dev.labc.testpattern_mode(False)
-#
 mask = 0xffffff 
-
 if len(sys.argv) > 1: 
     mask = int(sys.argv[1],0)
 
@@ -47,27 +38,12 @@ for i in range(24):
         ok.append(TuneResult.SKIPPED)
         continue 
 
-    dev.labc.default(i)
-    time.sleep(0.5) 
-    matchok = dev.labc.automatch_phab(i)
-
-    nattempts = 0
-    while matchok and nattempts < 3: 
-        time.sleep(0.5) 
-        matchok = dev.labc.automatch_phab(i)
-        nattempts+=1 
-
-    if not(matchok):
-        # give the DLL some time to settle?
-        time.sleep(0.5)
-        tuneok = dev.calib.initialTune(i)
-        if tuneok:
-            ok.append(TuneResult.SUCCESS)
-        else:
-            ok.append(TuneResult.TUNE_FAIL)
+    tuneok = dev.calib.initialTune(i)
+    if tuneok:
+        ok.append(TuneResult.SUCCESS)
     else:
-        print("automatch_phab failed a bunch of times...") 
-        ok.append(TuneResult.AUTOMATCH_FAIL)
+        ok.append(TuneResult.TUNE_FAIL)
+
 for i in range(len(ok)):
     print("LAB",i,"tune: ", ok[i].name)
 
