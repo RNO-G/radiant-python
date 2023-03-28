@@ -1,3 +1,4 @@
+#! /usr/bin/env python3 
 import radiant
 from radiant import RADIANT
 import sys.argv 
