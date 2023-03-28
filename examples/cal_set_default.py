@@ -13,7 +13,7 @@ dev.calib.load(dna)
 
 for i in range(24): 
     if mask & (1 << i): 
-        dev.calib['specifics'][i] = dev.calib.generic.copy() 
+        dev.calib.lab4_resetSpecifics(i) 
 
 
 dev.calib.save(dna)
