@@ -51,6 +51,7 @@ else:
 
 
 
+fail_mask = 0x0 
 
 for i in range(24):
 
@@ -59,16 +60,17 @@ for i in range(24):
         ok.append(TuneResult.SKIPPED)
         continue 
 
-
-
     tuneok = dev.calib.initialTune(i)
     if tuneok:
         ok.append(TuneResult.SUCCESS)
     else:
         ok.append(TuneResult.TUNE_FAIL)
+        fail_mask |= (1 << i); 
 
 for i in range(len(ok)):
     print("LAB",i,"tune: ", ok[i].name)
+
+print("Fail mask:" + hex(fail_mask))
 
 dev.calib.save(dna)
 dev.radsig.enable(False); 
