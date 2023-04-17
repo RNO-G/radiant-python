@@ -75,3 +75,7 @@ print("Fail mask:" + hex(fail_mask))
 dev.calib.save(dna)
 dev.radsig.enable(False); 
 dev.calSelect(None) 
+
+sys.exit(fail_mask) 
+
+
