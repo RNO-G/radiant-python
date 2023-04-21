@@ -77,6 +77,6 @@ dev.radsig.enable(False);
 dev.calSelect(None) 
 
 with open('/tmp/radiant-fail-mask','w') as f: 
-    f.write(hex(fail_mask) + '\n'; 
+    f.write(hex(fail_mask) + '\n') 
 
 
