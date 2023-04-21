@@ -76,6 +76,7 @@ dev.calib.save(dna)
 dev.radsig.enable(False); 
 dev.calSelect(None) 
 
-sys.exit(fail_mask) 
+with open('/tmp/radiant-fail-mask','w') as f: 
+    f.write(hex(fail_mask) + '\n'; 
 
 
