@@ -226,9 +226,9 @@ class RadCalib:
                 else:
                     delta = 3
                     if diff > 50:
-                        delta += 4
+                        delta += random.randint(2,6)
                     if diff > 100:
-                        delta += 8
+                        delta += random.randint(4,12)
                     if seamSample < 290:
                         delta = -1*delta
                     if seamTuneNum ==3: 
