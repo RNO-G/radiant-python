@@ -5,14 +5,16 @@
 # we also need a function to enable/disable JTAG
 # Don't call private functions.
 #
+import logging
 from time import sleep
 import binascii
 
 class RadCPLD:
-	def __init__(self, dev, addr, jtagEnableFn):
+	def __init__(self, dev, addr, jtagEnableFn, logger=logging.getLogger('root')):
 		self.dev = dev
 		self.addr = addr
 		self.enable = jtagEnableFn
+		self.logger = logger
         # Magic JTAG movement stuff
         # go to TLR
 		self.__tlr = 0x44001F00
@@ -43,12 +45,13 @@ class RadCPLD:
 	# program in a CPLD bitstream
 	# useBurst is ~12x faster: requires setJtagBurstType and burstWrite
 	def configure(self, fn, useBurst=True):
+		self.logger.info(f'Programming CPLD with firmware {fn}')
 		if useBurst:
 			self.dev.setJtagBurstType(self.dev.BurstType.BYTE)		
 		
 		f = self.getbitstream(fn)
 		if f is None:
-			print("File not OK")
+			self.logger.error("File not OK")
 			return False
 		
 		self.dev.write(self.addr, self.__tlr)
@@ -57,9 +60,9 @@ class RadCPLD:
 		self.__shiftirdr(0xC6, 0x00)
 		# ISC_ERASE
 		self.__shiftirdr(0x0E, 0x01, False)
-		print("Erasing...", end='', flush=True)		
+		self.logger.info("Erasing...")		
 		self.__runtest(1)
-		print("done")
+		self.logger.debug("done")
 		# BYPASS
 		self.__shiftir(0xFF, False)
 		# go to RTI
@@ -70,7 +73,7 @@ class RadCPLD:
 		self.__shiftir(0x7A, False)
 		# Go to SDR (using magic shift-IR + self.sir = shift-DR)
 		self.dev.write(self.addr, self.__sir)
-		print("Loading",end='',flush=True)
+		self.logger.info("Loading")
 		if useBurst:	
 			# clock a lot of FFs to ensure we're starting off OK
 			self.dev.write(self.addr, 0x670000FF)
@@ -96,7 +99,7 @@ class RadCPLD:
 				if len(b) == 128 or lastXfer:
 					self.dev.burstWrite(self.addr, b, inBurst=True, endBurst=lastXfer)
 					b = bytearray(0)		
-					print(".", end='', flush=True)
+#					self.logger.debug(".")
 		else:
 			# clock a lot of FFs to ensure we're starting off OK
 			for i in range(388):
@@ -111,8 +114,7 @@ class RadCPLD:
 				self.dev.write(self.addr, 0x67000000 | ord(val))
 				val = nv
 				nv = f.read(1)
-		print("")
-		print("Starting up...", end='', flush=True)
+		self.logger.info("Starting up...")
 		# now we're on the last, and we're out of burst mode.
 		self.dev.write(self.addr, 0x67008000 | ord(val))
 		# runtest for a while
@@ -124,7 +126,7 @@ class RadCPLD:
 		self.__isc_disable(False)
 		f.close()
 		self.enable(False)
-		print("OK")
+		self.logger.debug("OK")
 		
 	# Useful for checking if the file you've got is
 	# correct *before* screwing with things.
@@ -151,7 +153,7 @@ class RadCPLD:
 		# we're parsing right.
 		for i in range(13):
 			s = readstr(f)
-			print(s)
+			self.logger.info(s)
 
 		# Now check to see if the next is 0xFF
 		val = f.read(1)

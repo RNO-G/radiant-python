@@ -13,6 +13,7 @@
 # If we make a SURF5 DMA engine which matches the SPIDMA's interface
 # this will work there as well, which is pretty damn cool (obviously
 # once the SURF5 gets a CALRAM as well).
+import logging
 import numpy as np
 import pickle
 from os import path
@@ -24,12 +25,13 @@ class RadCalib:
     # do something at init
     # trigsPerRoll is the number of triggers I have to generate
     # to get through a full 4096 samples
-    def __init__(self, dev, genericFn, numLabs=24, trigsPerRoll=4, channelMask=0, calibPath="./calib"):
+    def __init__(self, dev, genericFn, numLabs=24, trigsPerRoll=4, channelMask=0, calibPath="./calib", logger=logging.getLogger('root')):
         self.dev = dev
         self.trigsPerRoll = 4
         self.channelMask = 0
         self.numLabs=numLabs
         self.calibPath = calibPath
+        self.logger = logger
         os.makedirs(calibPath, exist_ok=True) 
         # Build up a generic RADIANT: 24x generic parameters, all independent
         generic = pickle.load(open(genericFn, "rb"))
@@ -68,7 +70,7 @@ class RadCalib:
             # can use them. To Be Done!
             self.calib = tmp[()]
         else:
-            print("File", namestr, "not found: using defaults")
+            self.logger.warning(f"File {namestr} not found: using defaults")
             self.resetCalib()
     
     # Gets the LAB4-specific parameters for each LAB.
@@ -81,7 +83,7 @@ class RadCalib:
     # Updates pedestals, both locally
     # *and* in the CALRAM.
     def updatePedestals(self):
-        print("Updating pedestals...")
+        self.logger.info("Updating pedestals...")
         self.dev.labc.stop()
         self.dev.calram.zero()
         self.dev.calram.mode(self.dev.calram.CalMode.PEDESTAL)        
@@ -92,7 +94,7 @@ class RadCalib:
             self.dev.labc.force_trigger(block=True, numTrig=128, safe=False)
         self.dev.labc.stop()
         # peds are updated, dump them
-        print("Fetching pedestals...")
+        self.logger.info("Fetching pedestals...")
         self.dev.dma.engineReset()
         self.dev.dma.txReset()
         self.dev.dma.enable(True, self.dev.dma.calDmaMode)
@@ -104,7 +106,7 @@ class RadCalib:
         rawped = np.frombuffer(bytearray(self.dev.dma.dmaread(4096*4*self.numLabs)),dtype=np.uint32)
         rawped = rawped/512
         self.calib['pedestals'] = rawped.reshape(24, 4096)
-        print("Update complete")
+        self.logger.info("Update complete")
 
     # assumes *nothing* other than the LAB4's been defaulted and testpatern mode is off
     # The initial tune finds the trim feedback and shifts all the trims to ensure
@@ -113,10 +115,10 @@ class RadCalib:
         # Start off by dead-reckoning the initial target
         # Start off by trying to use the DLL.
         if self.calib['specifics'][lab][2] == 1024:
-            print("Defaults say to NOT use the DLL.")
+            self.logger.info("Defaults say to NOT use the DLL.")
             seamTuneNum = 3
         else:
-            print("Defaults say to use the DLL.")
+            self.logger.info("Defaults say to use the DLL.")
             seamTuneNum = 11
         
 
@@ -140,21 +142,21 @@ class RadCalib:
             scan = 1
         width = self.dev.labc.scan_width(scan)
         curTry = 0
-        print("Initial SSPin width:", width)
+        self.logger.debug("Initial SSPin width:", width)
         if width > 1800:
 
-            print("DLL seems broken, disabling") 
+            self.logger.error("DLL seems broken, disabling") 
             # try hack 
             self.dev.labc.l4reg(lab,2,1024)
             time.sleep(0.5) 
             width = self.dev.labc.scan_width(scan)
             self.calib['specifics'][lab][2] = 1024
             self.dev.labc.update(lab)
-            print("SSPin width after disabling DLL:", width)
+            self.logger.debug("SSPin width after disabling DLL:", width)
             if tryReg3ForFailedDLL:
                 seamTuneNum =3 
                 maxTries*=3  
-                print("Switching to VadjN")
+                self.logger.debug("Switching to VadjN")
         while width > 1000 and curTry < maxTries:
             newAvg = 0
             for i in range(257, 383):
@@ -165,11 +167,11 @@ class RadCalib:
             self.dev.labc.update(lab)
             time.sleep(0.1)
             width = self.dev.labc.scan_width(scan)
-            print("New SSPin width (avg", newAvg/126,"):",width)
+            self.logger.debug("New SSPin width (avg", newAvg/126,"):",width)
             curTry = curTry + 1
         
         if curTry == maxTries:
-           print("initial tune failed! Restoring initial state.")
+           self.logger.warning("initial tune failed! Restoring initial state.")
            self.calib['specifics'][lab] = initialState
            self.dev.labc.update(lab)
            return False
@@ -186,14 +188,14 @@ class RadCalib:
 
         t = self.getTimeRun(freq*1e6, verbose=False)
         
-        print("Initial seam/slow sample timing:", t[lab][0], t[lab][127])
+        self.logger.debug("Initial seam/slow sample timing:", t[lab][0], t[lab][127])
         # Check the times to see if we're *so* far off that
         # our measured seam time might actually be *negative*.
         # Note that even if it isn't, just declaring that it's
         # negative is fine, the result is the same. The
         # times that come from getTimeRun *cannot* be negative.
         if np.sum(t[lab][1:128]) > 39900:
-            print("Feedback LAB%d way off (%f): %d -> %d" % (lab, 40000-np.sum(t[lab][1:128]), t[lab][0], -1*t[lab][0]))
+            self.logger.debug("Feedback LAB%d way off (%f): %d -> %d" % (lab, 40000-np.sum(t[lab][1:128]), t[lab][0], -1*t[lab][0]))
             t[lab][0] = -1*t[lab][0]
         # copied from surf_daq's tune loop. Note that our times are
         # shifted one forward, but the trims are *not*. So in our
@@ -205,11 +207,11 @@ class RadCalib:
         for i in range(257, 383):
             oldavg += self.calib['specifics'][lab][i]
         oldavg = oldavg/126
-        print("Starting average trim:", oldavg)
+        self.logger.debug("Starting average trim:", oldavg)
         curTry = 0
         while slowSample > 290 or seamSample > 350 or (seamSample < 290 and oldavg < 2400):
             if curTry >= maxTries:
-                print("initial tune failed! Restoring initial state.")
+                self.logger.warning("initial tune failed! Restoring initial state.")
                 self.calib['specifics'][lab] = initialState
                 self.dev.labc.update(lab)
                 return False
@@ -236,10 +238,10 @@ class RadCalib:
                 cur = self.calib['specifics'][lab][seamTuneNum]
                 newVal = cur+delta; 
                 if newVal < 400: 
-                    print("hmm feedback got to small. let's try something random!")
+                    self.logger.warning("hmm feedback got to small. let's try something random!")
                     newVal = random.randrange(800,1200) 
                     time.sleep(2); 
-                print("Feedback LAB%d (%f): %d -> %d (register %d)" % (lab, seamSample, cur, newVal, seamTuneNum))
+                self.logger.debug("Feedback LAB%d (%f): %d -> %d (register %d)" % (lab, seamSample, cur, newVal, seamTuneNum))
                 self.calib['specifics'][lab][seamTuneNum] = newVal
             elif slowSample > 290 and oldavg <2400:
                 # We ONLY DO THIS if the seam sample's close.
@@ -260,7 +262,7 @@ class RadCalib:
                     oldavg += old                    
                     self.calib['specifics'][lab][i] = old + 25
                 oldavg = oldavg/126
-                print("Slowing early samples: LAB%d (%f): %d -> %d" % (lab, slowSample, oldavg, oldavg + 25))
+                self.logger.debug("Slowing early samples: LAB%d (%f): %d -> %d" % (lab, slowSample, oldavg, oldavg + 25))
                 oldavg = oldavg + 25
             elif slowSample < 250 and oldavg >1800:
                # Trim updating is a pain, sigh.
@@ -270,24 +272,24 @@ class RadCalib:
                     oldavg += old                    
                     self.calib['specifics'][lab][i] = old - 25
                 oldavg = oldavg/126
-                print("Speeding early samples: LAB%d (%f): %d -> %d" % (lab, slowSample, oldavg, oldavg - 25))
+                self.logger.debug("Speeding early samples: LAB%d (%f): %d -> %d" % (lab, slowSample, oldavg, oldavg - 25))
                 oldavg = oldavg - 25
   
             # now update
-            print("Updating...", end='', flush=True)
+            self.logger.info("Updating...")
             self.dev.labc.update(lab)
-            print("done")
+            self.logger.debug("done")
             # fetch times again
             t = self.getTimeRun(freq*1e6, verbose=False)
-            print("Seam/slow sample timing now:", t[lab][0], t[lab][127])
+            self.logger.debug("Seam/slow sample timing now:", t[lab][0], t[lab][127])
             if np.sum(t[lab][1:128]) > 39900:
-                print("Feedback LAB%d way off (%f): %d -> %d" % (lab, 40000-np.sum(t[lab][1:128]), t[lab][0], -1*t[lab][0]))
+                self.logger.debug("Feedback LAB%d way off (%f): %d -> %d" % (lab, 40000-np.sum(t[lab][1:128]), t[lab][0], -1*t[lab][0]))
                 t[lab][0] = -1*t[lab][0]
             seamSample = t[lab][0]
             slowSample = t[lab][127]
             curTry = curTry + 1
-        print("Ending seam sample :", t[lab][0],"feedback",self.calib['specifics'][lab][seamTuneNum],"using register ",seamTuneNum)
-        print("Ending slow sample :", t[lab][127],"average earlier trims", oldavg)
+        self.logger.info("Ending seam sample :", t[lab][0],"feedback",self.calib['specifics'][lab][seamTuneNum],"using register ",seamTuneNum)
+        self.logger.info("Ending slow sample :", t[lab][127],"average earlier trims", oldavg)
         return True
         
     # Gets times from a zero-crossing run. Assumes pedestals loaded, sine wave running.
@@ -302,8 +304,7 @@ class RadCalib:
     # long (update: it takes like, 5 seconds, and this is overkill, since we transfer
     # ALL of the LAB4s, and we only need 1/3 of them). Working on it!!!
     def getTimeRun(self, frequency, verbose=True):
-        if verbose:
-            print("Calculating times...", end='', flush=True)
+        self.logger.info("Calculating times...")
         self.dev.labc.stop()
         self.dev.calram.zero(zerocrossOnly=True)
         self.dev.calram.mode(self.dev.calram.CalMode.NONE)
@@ -315,16 +316,14 @@ class RadCalib:
         # Run to 384 samples, I dunno what happens at 512 yet, screw it.
         for i in range(3*self.trigsPerRoll):
             self.dev.labc.force_trigger(block=True, numTrig=128, safe=False)
-        if verbose:
-            print("done.")
+        self.logger.debug("done.")
         self.dev.labc.stop()
             
         # This should check to make sure it's actually 384, which it *should* be.
         # We're doing things in groups of 384 because it can't trip the ZC overflow
         # limit.
         numRolls = self.dev.calram.numRolls()        
-        if verbose:
-            print("Fetching times for", numRolls, "successful rolls...", end='', flush=True)
+        self.logger.info("Fetching times for", numRolls, "successful rolls...", end='', flush=True)
         self.dev.dma.enable(True, self.dev.dma.calDmaMode)
         for i in range(self.numLabs):
             final = i==(self.numLabs-1)
@@ -334,8 +333,7 @@ class RadCalib:
         # Data comes in as 4096*4*numLabs bytes in little-endian format.
         # Convert it to 4096*numLabs uint32's.
         rawtime = np.frombuffer(bytearray(self.dev.dma.dmaread(4096*4*self.numLabs)), dtype=np.uint32)
-        if verbose:
-            print("done.")
+        self.logger.debug("done.")
         # Now view it as an array of [numLabs][4096]
         timeByLab = rawtime.reshape(self.numLabs, 4096)
         # Building up the times is a little harder than the pedestals.

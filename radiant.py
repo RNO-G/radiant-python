@@ -113,12 +113,12 @@ class RADIANT:
 		# create the calibration interface. Starts off being unloaded.
 		# Will be loaded when a DNA's present.
 		# If we try to use without a DNA, use lab4generic_3G2.p's parameters.
-		self.calib = RadCalib(self, pathlib.Path(__file__).parent / "data" / "lab4generic_3G2.p")
+		self.calib = RadCalib(self, pathlib.Path(__file__).parent / "data" / "lab4generic_3G2.p", logger=self.logger)
 		self.jtag = RadJTAG(self)
 			
 		# create the CPLDs. These are really only for JTAG configuration.
-		self.cpl = RadCPLD(self, self.map['LJTAG'], self.cpldJtag)
-		self.cpr = RadCPLD(self, self.map['RJTAG'], self.cpldJtag)		
+		self.cpl = RadCPLD(self, self.map['LJTAG'], self.cpldJtag, self.logger)
+		self.cpr = RadCPLD(self, self.map['RJTAG'], self.cpldJtag, self.logger)
 		# LAB4 Controller.
 		# RADIANT config.
 		# 24 channels
@@ -137,7 +137,7 @@ class RADIANT:
 			   'regclrAll' : 0x1 }
 			
 		# Dummy calibration for now. Need to redo the calibration core anyway.		
-		self.labc = LAB4_Controller(self, self.map['LAB4_CTRL_BASE'], self.calib, **config)
+		self.labc = LAB4_Controller(self, self.map['LAB4_CTRL_BASE'], self.calib, self.logger, **config)
 		
 		# Calram
 		self.calram = LAB4_Calram(self, self.map['LAB4_CALRAM_BASE'], self.labc, numLabs=24, labAllMagic=31)
@@ -282,6 +282,7 @@ class RADIANT:
 		
 	# if trigger=True, we set the trigger atten, not signal atten
 	def atten(self, channel, value, trigger=False):
+		self.logger.debug(f'Setting attenuator ch. {channel} to {value} (trigger={trigger})')
 		# figure out the quad
 		quad = int(channel/4)
 		addr = self.map['BM_I2CGPIO_BASE']+quad*4
@@ -298,7 +299,7 @@ class RADIANT:
 		if trigger:
 			att |= 0x1
 		toWrite = (att << 8) | value
-		print("Writing", hex(toWrite))
+		self.logger.debug(f"Writing {toWrite:#X}")
 		self.write(self.map['BM_SPIOUTLSB'], toWrite)
 		# get the current GPIO value
 		cur = self.read(addr)
@@ -317,6 +318,7 @@ class RADIANT:
 		self.write(self.map['CPLD_CONTROL'], toWrite)
 		
 	def pedestal(self, val):
+		self.logger.debug(f'Setting pedestal to {val}')
 		# just set both to same value
 		self.write(self.map['BM_PEDESTAL'], val)
 		self.write(self.map['BM_PEDESTAL']+4, val)

@@ -1,7 +1,7 @@
 from .bf import bf
 from .picoblaze import PicoBlaze
 import pickle
-from os import path
+import pathlib
 import time
 
 # Parameterized LAB4 controller (hopefully...)
@@ -59,13 +59,14 @@ class LAB4_Controller:
                 }
 
         # the kwargs list was long: see above for the list of all config options.
-        def __init__(self, dev, base, calibrations, **kwargs):
+        def __init__(self, dev, base, calibrations, logger, **kwargs):
             self.defaults = None
             
             #numLabs=12, labAll=15, syncOffset=0, labMontimingMapFn=None, regclrAll=0xFFF):
             self.dev = dev
             self.base = base
             self.calibrations = calibrations
+            self.logger = logger
             # defaulty-defaulty
             for item in self.defconfig:
                 if not item in kwargs:
@@ -109,9 +110,9 @@ class LAB4_Controller:
         def readoutempty(self, threshold):
             self.write(self.map['READOUTEMPTY'], threshold)
 
-        def load_defaults(self, fn=path.dirname(__file__)+"/lab4defaults_3G2.p"):
-            if not path.isfile(fn):
-                print("Cannot open file ", fn)
+        def load_defaults(self, fn=pathlib.Path(__file__).parent / "data" / "lab4defaults_3G2.p"):
+            if not fn.is_file():
+                raise RuntimeError(f"Cannot open file {fn}")
             self.defaults = pickle.load(open(fn, "rb"))
             
         # We do match=1 here because we find the first WR_STRB edge
@@ -131,10 +132,10 @@ class LAB4_Controller:
             sync_edge = self.scan_edge(12, 1)
             if sync_edge == 0xFFFF:
                 # this will never happen
-                print("No sync edge found??")
+                self.logger.warning("No sync edge found??")
                 return False
             
-            print("Found sync edge: %d" % sync_edge)
+            self.logger.debug("Found sync edge: %d" % sync_edge)
             err = False
             for i in labs:
                 self.montimingSelectFn(i)
@@ -160,13 +161,13 @@ class LAB4_Controller:
                 width = self.scan_width(scanNum)
                 if width < 200 or width > 4000:
                     # not working
-                    print("Delay line not working (width", width, "), trying to kick")
+                    self.logger.warning("Delay line not working (width", width, "), trying to kick")
                     self.l4reg(lab, 8, 2500)
                     time.sleep(0.1)
                     width = self.scan_width(scanNum)
-                    print("Width now", width)
+                    self.logger.warning("Width now", width)
                     if width < 200 or width > 4000:
-                        print("still not working, bailing")
+                        self.logger.error("still not working, bailing")
                         err = True
                         continue
                     self.l4reg(lab, 8, 2700)
@@ -176,22 +177,22 @@ class LAB4_Controller:
                 self.set_tmon(lab, self.tmon['WR_STRB'])
                 wr_edge = self.scan_edge(scanNum, 1, sync_edge)
                 if wr_edge == 0xFFFF:
-                    print("No WR_STRB edge found for LAB%d, skipping!" % i)
+                    self.logger.error("No WR_STRB edge found for LAB%d, skipping!" % i)
                     err = True
                     continue
                 # if WR_STRB edge finding worked, PHAB should too
-                print("Found WR_STRB edge on LAB%d: %d" % (i, wr_edge))
+                self.logger.debug("Found WR_STRB edge on LAB%d: %d" % (i, wr_edge))
                 wr_edge = wr_edge - self.syncOffset
                 if wr_edge < 0:
                     wr_edge = wr_edge + 56*80
-                print("Adjusted WR_STRB edge on LAB%d: %d" % (i, wr_edge))
+                self.logger.debug("Adjusted WR_STRB edge on LAB%d: %d" % (i, wr_edge))
                 self.set_tmon(lab, self.tmon['PHAB'])
                 phab = self.scan_value(scanNum, wr_edge) & 0x01
                 if self.invertSync:
                     phab = phab ^ 0x01
                     
                 while phab != match:
-                    print("LAB%d wrong PHAB phase, resetting." % i)
+                    self.logger.warning("LAB%d wrong PHAB phase, resetting." % i)
                     self.clr_phase(i)
                     phab = self.scan_value(scanNum, wr_edge) & 0x01
                     if self.invertSync:
@@ -205,19 +206,19 @@ class LAB4_Controller:
                 
                 rising=self.scan_edge(scanNum, 1, 0)
                 if rising == 0xFFFF:
-                    print("No rising edge on VadjP: looks stuck")
+                    self.logger.error("No rising edge on VadjP: looks stuck")
                     return
                 falling=self.scan_edge(scanNum, 0, rising+100)
                 if falling == 0xFFFF:
-                    print("No falling edge on VadjP: looks stuck")
+                    self.logger.error("No falling edge on VadjP: looks stuck")
                     return
                 
                 width=falling-rising
                 if width < 0:
-                        print("Width less than 0, do something.")
+                        self.logger.error("Width less than 0, do something.")
                         return
                 width = int(width*1.05)
-                print("SSPout target: ", width)
+                self.logger.debug("SSPout target: ", width)
                 vadjp=initial
                 delta=20
                 self.l4reg(lab, 8, vadjp)
@@ -226,7 +227,7 @@ class LAB4_Controller:
                 falling=self.scan_edge(scanNum, 0, rising+100)
                 trial=falling-rising
                 if trial < 0:
-                        print("Trial width less than 0, do something.")
+                        self.logger.error("Trial width less than 0, do something.")
                         return
                 oldtrial=trial
                 while abs(trial-width) > 2:
@@ -248,7 +249,7 @@ class LAB4_Controller:
                         rising=self.scan_edge(scanNum, 1, 0)
                         falling=self.scan_edge(scanNum, 0, rising+100)
                         trial=falling-rising
-                        print("Trial: vadjp %d width %f target %f" % ( vadjp, trial, width))
+                        self.logger.debug("Trial: vadjp %d width %f target %f" % ( vadjp, trial, width))
                 return vadjp
                 
         def autotune_vadjn(self, lab):
@@ -261,10 +262,10 @@ class LAB4_Controller:
             self.l4reg(lab, 3, vadjn)            
             width = self.scan_width(scanNum, 64)
             if width == 0 or width > 4400:
-                print("VadjN looks stuck")
+                self.logger.error("VadjN looks stuck")
                 return 0
             oldwidth = width
-            print("Trial: vadjn %d width %f" % ( vadjn, width))
+            self.logger.debug("Trial: vadjn %d width %f" % ( vadjn, width))
             while abs(width-840) > 0.5:
                 if (width < 840):
                     if (oldwidth > 840):
@@ -281,7 +282,7 @@ class LAB4_Controller:
                 oldwidth = width
                 self.l4reg(lab, 3, vadjn)
                 width = self.scan_width(scanNum, 64)
-                print("Trial: vadjn %d width %f" % ( vadjn, width))
+                self.logger.debug("Trial: vadjn %d width %f" % ( vadjn, width))
             return vadjn            
                 
         ''' switch the phase scanner to free-scan (ChipScope view) mode '''
@@ -298,19 +299,19 @@ class LAB4_Controller:
                 # this should be 4480 - the total length of the phase scanner
                 # but we give it some margin
                 if param[0] == 0 or param[0] > 4470.0:
-                    print(strb, ": not present")
+                    self.logger.warning(strb, ": not present")
                 else:
-                    print(strb, ": width ", param[0], "from", param[1], "-",param[2])
+                    self.logger.debug(strb, ": width ", param[0], "from", param[1], "-",param[2])
             for strb in ['SSPin', 'SSPout']:
                 self.set_tmon(lab, self.tmon[strb])
                 # get the first pulse
                 p1 = self.scan_pulse_param(scanNum, 0)
                 if p1[0] == 0 or p1[0] > 4470.0:
-                    print(strb, ": not present")
+                    self.logger.error(strb, ": not present")
                     continue
                 # get the second pulse, after the end of the first
                 p2 = self.scan_pulse_param(scanNum, p1[2])
-                print(strb, ": width ", p1[0], "from", p1[1],"-",p1[2], "and", p2[1], "-", p2[2])
+                self.logger.debug(strb, ": width ", p1[0], "from", p1[1],"-",p1[2], "and", p2[1], "-", p2[2])
                 
         def scan_pulse_param(self, scan, start):
             param = []
@@ -338,7 +339,7 @@ class LAB4_Controller:
         ''' get the value of a signal at a specific phase step '''
         def scan_value(self,scanNum,position):
             if position > 4479:
-                print("Position must be 0-4479.")
+                self.logger.error("Position must be 0-4479.")
                 return None
             val = bf(0)                
             val[15:0] = position
@@ -399,17 +400,17 @@ class LAB4_Controller:
             complain to me later :) '''
         def set_trigger_repeat(self, repeat=0):
             if repeat > 2:
-                print("Trigger can only repeat up to 2 times")
+                self.logger.error("Trigger can only repeat up to 2 times")
                 return
             ctrl = bf(self.read(self.map['CONTROL']))
             if ctrl[1]:
-                print("cannot change trigger repeat: LAB4 in run mode")
+                self.logger.error("cannot change trigger repeat: LAB4 in run mode")
                 return
             # Set trigger repeat. To do that, we have
             # to set bit 31 (to indicate we're updating the repeat)
             # and set repeat in bits [25:24].
             trig = (1<<31) | (repeat<<24)
-            print("setting trigger register:", hex(trig))
+            self.logger.debug("setting trigger register:", hex(trig))
             self.write(self.map['TRIGGER'], trig)
             return                
                 
@@ -421,9 +422,9 @@ class LAB4_Controller:
             if block is True and safe is True:
                 ctrl = bf(self.read(self.map['CONTROL']))
                 if not ctrl[1]:
-                    print("Can't trigger, LAB4 not in run mode")
+                    self.logger.error("Can't trigger, LAB4 not in run mode")
             if numTrig > 256:
-                print("limiting to 256 triggers")
+                self.logger.warning("limiting to 256 triggers")
                 numTrig = 256
             numTrig = numTrig - 1
             self.write(self.map['TRIGGER'], 2 | (numTrig << 8))
@@ -438,7 +439,7 @@ class LAB4_Controller:
         def reg_clr(self):
             ctrl = bf(self.read(self.map['CONTROL']))
             if ctrl[1]:
-                print("cannot issue REG_CLR: LAB4 in run mode")
+                self.logger.error("cannot issue REG_CLR: LAB4 in run mode")
                 return 1
             else:
                 self.write(0, 0xFFF0000)
@@ -450,7 +451,7 @@ class LAB4_Controller:
         def reset_fifo(self, force=False, reset_readout=True):
             ctrl = bf(self.read(self.map['CONTROL']))
             if ctrl[1] and not force:
-                print("cannot reset FIFO: LAB4 in run mode")
+                self.logger.error("cannot reset FIFO: LAB4 in run mode")
                 return 1
             else:
                 if reset_readout:
@@ -533,10 +534,10 @@ class LAB4_Controller:
                 
                 calFbs = None
                 if calFbs == None:
-                    print("Using default Vtrimfb of 1300.")
+                    self.logger.debug("Using default Vtrimfb of 1300.")
                     self.l4reg(lab4, 11, 1300)
                 else:
-                    print("Using cal file for Vtrimfb's")
+                    self.logger.debug("Using cal file for Vtrimfb's")
                     if lab4 == self.labAll:
                         for i in range(self.numLabs):
                             self.l4reg(i,11,calFbs[i])
@@ -549,18 +550,18 @@ class LAB4_Controller:
         def l4reg(self, lab, addr, value, verbose=False):
             ctrl = bf(self.read(self.map['CONTROL']))
             if ctrl[1]:  #should be checking ctrl[2], which indicates run-mode. but not working 6/9
-                print("LAB4_Controller is running, cannot update registers.") 
+                self.logger.error("LAB4_Controller is running, cannot update registers.") 
                 return
             user = bf(self.read(self.map['L4REG']))
             if user[31]:
-                print("LAB4_Controller is still processing a register?")
+                self.logger.error("LAB4_Controller is still processing a register?")
                 return
             user[11:0] = value
             user[23:12] = addr
             user[28:24] = lab
             user[31] = 1
             if verbose:
-                print("Going to write 0x%X" % int(user)) 
+                self.logger.debug("Going to write 0x%X" % int(user)) 
             self.write(self.map['L4REG'], int(user))
             while not user[31]:
                 user = bf(self.read(self.map['L4REG']))
@@ -598,10 +599,10 @@ class LAB4_Controller:
                 self.load_defaults()
             
             # and use defaults. These can be globally loaded if desired.
-            print("Loading global defaults...", end='', flush=True)
+            self.logger.info("Loading global defaults...")
             for item in self.defaults.items():
                 self.l4reg(lab4, item[0], item[1])
-            print("done.")            
+            self.logger.debug("done.")
             
             # The specs, however, have to be loaded 1 by 1.
             larr = []
@@ -612,16 +613,16 @@ class LAB4_Controller:
                 larr.append(lab4)
             
             for li in larr:
-                print("Loading specifics for LAB%d..." % li, end='', flush=True)
+                self.logger.info("Loading specifics for LAB%d..." % li)
                 self.update(li)
-                print("done.")
+                self.logger.debug("done.")
                 if initial:
                     # "initial" implies this was a startup.
                     # So we need to drive VadjN to a reasonable value and let the DLL
                     # take over from there.
-                    print("Kickstarting LAB%d..." % li, end='', flush=True)
+                    self.logger.info("Kickstarting LAB%d..." % li)
                     self.l4reg(lab4, 2, 1024)
                     time.sleep(0.5)
                     self.l4reg(lab4, 2, 0)
-                    print("done.")
+                    self.logger.debug("done.")
                 
