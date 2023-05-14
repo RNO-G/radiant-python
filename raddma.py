@@ -1,4 +1,4 @@
-from bf import bf
+from .bf import bf
 
 class RadDMA:
     map = { 'CONFIG'   : 0x00,

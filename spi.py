@@ -3,7 +3,7 @@ import sys
 import time
 # intelhex is horrible...
 import intelhex
-from bf import * 
+from .bf import * 
 
 # THIS IS FOR AN SPI FLASH, not generic SPI
 

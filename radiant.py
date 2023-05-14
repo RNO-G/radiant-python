@@ -1,23 +1,26 @@
-from serialcobsdevice import SerialCOBSDevice
-from enum import Enum
-from radcpld import RadCPLD
-from lab4_controller import LAB4_Controller
-from lab4_calram import LAB4_Calram
+import enum
+import logging
+import pathlib
+import time
 
-from radcalib import RadCalib
-from radsig import RadSig
-from radjtag import RadJTAG
-import os.path
+from .serialcobsdevice import SerialCOBSDevice
+from .radcpld import RadCPLD
+from .lab4_controller import LAB4_Controller
+from .lab4_calram import LAB4_Calram
 
-from bbspi import BBSPI
-from raddma import RadDMA
+from .radcalib import RadCalib
+from .radsig import RadSig
+from .radjtag import RadJTAG
 
-from spi import SPI
+from .bbspi import BBSPI
+from .raddma import RadDMA
 
-from bf import bf
+from .spi import SPI
+
+from .bf import bf
 
 import Adafruit_BBIO.GPIO as GPIO
-import time
+
 
 class RADIANT:
 	## NOTE THIS IS A STATIC FUNCTION
@@ -79,13 +82,16 @@ class RADIANT:
 		def __repr__(self):
 			val = (self.year << 25) | (self.mon << 21) | (self.day << 16) | (self.major<<12) | (self.minor<<8) | self.rev
 			return f'RADIANT.DateVersion({val})'
-		
-	class BurstType(Enum):
+        
+		def toDict(self):
+			return { 'version': f'{self.major}.{self.minor}.{self.rev}', 'date': f'{self.year+2000}-{self.mon:02d}-{self.day:02d}' }
+	
+	class BurstType(enum.Enum):
 		BYTE = 0x000
 		WORD = 0x100
 		DWORD = 0x200
                 
-	class DeviceType(Enum):
+	class DeviceType(enum.Enum):
 		SERIAL = 'Serial'		
 	
 	#### ACTUAL INITIALIZATION
@@ -94,6 +100,8 @@ class RADIANT:
 		return int(lab/12)
 		
 	def __init__(self, port, type=DeviceType.SERIAL):
+		self.logger = logging.getLogger('RADIANT')
+		
 		if type == self.DeviceType.SERIAL:
 			self.dev = SerialCOBSDevice(port, 1000000)
 			# pull in the interface functions
@@ -105,7 +113,7 @@ class RADIANT:
 		# create the calibration interface. Starts off being unloaded.
 		# Will be loaded when a DNA's present.
 		# If we try to use without a DNA, use lab4generic_3G2.p's parameters.
-		self.calib = RadCalib(self, os.path.dirname(__file__)+"/lab4generic_3G2.p")
+		self.calib = RadCalib(self, pathlib.Path(__file__).parent / "data" / "lab4generic_3G2.p")
 		self.jtag = RadJTAG(self)
 			
 		# create the CPLDs. These are really only for JTAG configuration.
@@ -323,21 +331,21 @@ class RADIANT:
 			
 		bid = str4(self.read(self.map['BM_ID']))
 		bver = self.DateVersion(self.read(self.map['BM_DATEVERSION']))
-		print("Board Manager:", bid, bver)
 
 		status = self.read(self.map['BM_STATUS'])
-		print("  STATUS: ", hex(status))
 	
 		fid = str4(self.read(self.map['FPGA_ID']))
-		print("FPGA:", fid, end=' ') 
 		if fid == "RDNT":
-			fdv = self.DateVersion(self.read(self.map['FPGA_DATEVERSION']))
-			print(fdv, end=' ') 
+			fver = self.DateVersion(self.read(self.map['FPGA_DATEVERSION']))
 			dna = self.dna()
-			print(dna) 
-		else:
-			print('') 
-		
+			return { 'board_manager_id': bid,
+					 'board_manager_version': bver.toDict(),
+					 'board_manager_status': status,
+					 'fpga_id': fid,
+					 'fpga_version': fver.toDict(),
+					 'dna': dna }
+		return None
+	
 	def dna(self):
 		self.write(self.map['DNA'], 0x80000000)
 		dnaval=0

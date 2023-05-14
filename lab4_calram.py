@@ -1,4 +1,4 @@
-from bf import bf
+from .bf import bf
 from enum import Enum
 
 class LAB4_Calram:

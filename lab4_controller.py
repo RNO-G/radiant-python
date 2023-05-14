@@ -1,5 +1,5 @@
-from bf import bf
-import picoblaze
+from .bf import bf
+from .picoblaze import PicoBlaze
 import pickle
 from os import path
 import time
@@ -79,8 +79,8 @@ class LAB4_Controller:
             self.montimingSelectFn = kwargs['montimingSelectFn']
             self.regclrAll = kwargs['regclrAll']
                 
-            self.pb = picoblaze.PicoBlaze(self, self.map['pb'])
-            self.phasepb = picoblaze.PicoBlaze(self,self.map['PHASEPB'])
+            self.pb = PicoBlaze(self, self.map['pb'])
+            self.phasepb = PicoBlaze(self,self.map['PHASEPB'])
 
         # We use python properties for anything that can be both
         # written and read back. So that's like, internal stuff to

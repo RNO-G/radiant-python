@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from radiant import RADIANT
+import radiant
 import sys, getopt
 
 helpstring="radidentify.py -p|--port <port>"
@@ -19,8 +19,8 @@ def main(argv):
         elif opt in ("-p", "--port"):
             port = arg
     
-    dev = RADIANT(port)
-    dev.identify()
+    dev = radiant.RADIANT(port)
+    print(dev.identify())
 
 if __name__ == "__main__":
     main(sys.argv[1:])

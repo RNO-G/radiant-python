@@ -1,4 +1,4 @@
-from bf import *
+from .bf import *
 
 class PicoBlaze:
     instr0_map = { (0x00>>1) : "LOAD",
