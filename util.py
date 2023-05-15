@@ -1,6 +1,65 @@
 import enum
 import numpy as np
 import pathlib
+import time
+
+
+# niter - number of iterations
+# buff - window not to change it
+# step - steps to change the isels by
+# voltage_setting - voltage to make middle of the range
+def calib_isels(radiant, niter=10, buff=32, step=4, voltage_setting=1250):
+	reset(radiant)
+	radiant.calib.resetCalib()
+	radiant.calib.load(radiant.dna()) # load whatever calibration has already been done
+
+	radiant.logger.info(f"Start isel values: {[radiant.calib.calib['specifics'][ch][10] for ch in range(24)]}")
+	for iIter in range(niter):
+		radiant.logger.info(f"calib_isels: starting iteration {iIter} of {niter}")
+		reset(radiant)
+
+		for ch in range(24):
+			radiant.labc.update(ch)
+
+		radiant.pedestal(int((voltage_setting/3300)*4095))
+		time.sleep(0.5)
+		radiant.calib.updatePedestals()
+
+		# Now going to fit a line through those two points
+		for ch in range(24):
+			x0 = voltage_setting
+			y0 = np.median(radiant.calib.calib['pedestals'][ch][:1024])
+
+			if(y0 == 0):
+				continue
+
+			radiant.logger.debug(f"{iIter} {ch} {y0}")
+			if(y0 + buff < 2047):
+				radiant.calib.calib['specifics'][ch][10] += step
+			elif(y0 - buff > 2047):
+				radiant.calib.calib['specifics'][ch][10] -= step
+
+	radiant.logger.info(f"Final isel values: {[radiant.calib.calib['specifics'][ch][10] for ch in range(24)]}")
+	radiant.calib.save(radiant.dna())
+
+
+def reset(radiant):
+	radiant.labc.stop()
+	radiant.dma.reset()
+
+	radiant.labc.testpattern_mode(False)
+	radiant.calram.zero()
+	radiant.calram.mode(radiant.calram.CalMode.NONE)
+	radiant.dma.write(3, 0)
+
+	radiant.dma.engineReset()
+	radiant.dma.txReset()
+
+	# Turn off cal pulser
+	for i in range(6):
+	    radiant.write(radiant.map['BM_I2CGPIO_BASE']+4*i, 0xF0)
+
+	time.sleep(1)
 
 
 def setup_radiant(radiant):
