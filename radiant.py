@@ -143,7 +143,7 @@ class RADIANT:
 		self.calram = LAB4_Calram(self, self.map['LAB4_CALRAM_BASE'], self.labc, numLabs=24, labAllMagic=31)
 		
 		# RadSig
-		self.radsig = RadSig(self)
+		self.radsig = RadSig(self, self.logger)
 		
 		# DMA
 		self.dma = RadDMA(self, self.map['DMABASE'], BBSPI())
@@ -181,13 +181,13 @@ class RADIANT:
         # these almost should be considered internal: to burst write/read use the burstread/burstwrite functions
 	def multiread(self, addr, num):
 		if addr & 0x400000:
-			print("RADIANT board manager does not support multireads")
+			self.logger.error("RADIANT board manager does not support multireads")
 			return None
 		return self.dev.multiread(addr, num)
 
 	def multiwrite(self, addr, data):
 		if addr & 0x400000:
-			print("RADIANT board manager does not support multiwrites")
+			self.logger.error("RADIANT board manager does not support multiwrites")
 			return None
 		return self.dev.multiwrite(addr, data)
 

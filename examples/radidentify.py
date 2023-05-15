@@ -1,27 +1,20 @@
 #!/usr/bin/env python3
 
+import argparse
+import logging
+
 import radiant
-import sys, getopt
 
-helpstring="radidentify.py -p|--port <port>"
 
-def main(argv):
-    port = "/dev/ttyO5"
-    try:
-        opts, args = getopt.getopt(argv,"hp:",["port="])
-    except getopt.GetoptError:
-        print(helpstring)
-        sys.exit(2)
-    for opt, arg in opts:
-        if opt == '-h':
-            print(helpstring)
-            sys.exit()
-        elif opt in ("-p", "--port"):
-            port = arg
-    
-    dev = radiant.RADIANT(port)
-    print(dev.identify())
+parser = argparse.ArgumentParser()
+parser.add_argument('--device', type=str, default='/dev/ttyRadiant', help='RADIANT serial device file')
+parser.add_argument('-v', '--verbose', action='store_true', help='verbose output (logging level DEBUG)')
+args = parser.parse_args()
 
-if __name__ == "__main__":
-    main(sys.argv[1:])
-    
+if args.verbose:
+	logging.basicConfig(level=logging.DEBUG)
+else:
+	logging.basicConfig(level=logging.INFO)
+
+radiant_board = radiant.RADIANT(port=args.device)
+print(radiant_board.identify())

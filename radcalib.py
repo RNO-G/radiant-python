@@ -142,7 +142,7 @@ class RadCalib:
             scan = 1
         width = self.dev.labc.scan_width(scan)
         curTry = 0
-        self.logger.debug("Initial SSPin width:", width)
+        self.logger.debug(f"Initial SSPin width: {width}")
         if width > 1800:
 
             self.logger.error("DLL seems broken, disabling") 
@@ -152,7 +152,7 @@ class RadCalib:
             width = self.dev.labc.scan_width(scan)
             self.calib['specifics'][lab][2] = 1024
             self.dev.labc.update(lab)
-            self.logger.debug("SSPin width after disabling DLL:", width)
+            self.logger.debug(f"SSPin width after disabling DLL: {width}")
             if tryReg3ForFailedDLL:
                 seamTuneNum =3 
                 maxTries*=3  
@@ -167,7 +167,7 @@ class RadCalib:
             self.dev.labc.update(lab)
             time.sleep(0.1)
             width = self.dev.labc.scan_width(scan)
-            self.logger.debug("New SSPin width (avg", newAvg/126,"):",width)
+            self.logger.debug(f"New SSPin width (avg {newAvg/126}): {width}")
             curTry = curTry + 1
         
         if curTry == maxTries:
@@ -188,7 +188,7 @@ class RadCalib:
 
         t = self.getTimeRun(freq*1e6, verbose=False)
         
-        self.logger.debug("Initial seam/slow sample timing:", t[lab][0], t[lab][127])
+        self.logger.debug(f"Initial seam/slow sample timing: {t[lab][0]} {t[lab][127]}")
         # Check the times to see if we're *so* far off that
         # our measured seam time might actually be *negative*.
         # Note that even if it isn't, just declaring that it's
@@ -207,7 +207,7 @@ class RadCalib:
         for i in range(257, 383):
             oldavg += self.calib['specifics'][lab][i]
         oldavg = oldavg/126
-        self.logger.debug("Starting average trim:", oldavg)
+        self.logger.debug(f"Starting average trim: {oldavg}")
         curTry = 0
         while slowSample > 290 or seamSample > 350 or (seamSample < 290 and oldavg < 2400):
             if curTry >= maxTries:
@@ -281,15 +281,15 @@ class RadCalib:
             self.logger.debug("done")
             # fetch times again
             t = self.getTimeRun(freq*1e6, verbose=False)
-            self.logger.debug("Seam/slow sample timing now:", t[lab][0], t[lab][127])
+            self.logger.debug(f"Seam/slow sample timing now: {t[lab][0]} {t[lab][127]}")
             if np.sum(t[lab][1:128]) > 39900:
                 self.logger.debug("Feedback LAB%d way off (%f): %d -> %d" % (lab, 40000-np.sum(t[lab][1:128]), t[lab][0], -1*t[lab][0]))
                 t[lab][0] = -1*t[lab][0]
             seamSample = t[lab][0]
             slowSample = t[lab][127]
             curTry = curTry + 1
-        self.logger.info("Ending seam sample :", t[lab][0],"feedback",self.calib['specifics'][lab][seamTuneNum],"using register ",seamTuneNum)
-        self.logger.info("Ending slow sample :", t[lab][127],"average earlier trims", oldavg)
+        self.logger.info(f"Ending seam sample : {t[lab][0]} feedback {self.calib['specifics'][lab][seamTuneNum]} using register {seamTuneNum}")
+        self.logger.info(f"Ending slow sample : {t[lab][127]} average earlier trims {oldavg}")
         return True
         
     # Gets times from a zero-crossing run. Assumes pedestals loaded, sine wave running.
@@ -323,7 +323,7 @@ class RadCalib:
         # We're doing things in groups of 384 because it can't trip the ZC overflow
         # limit.
         numRolls = self.dev.calram.numRolls()        
-        self.logger.info("Fetching times for", numRolls, "successful rolls...", end='', flush=True)
+        self.logger.info(f"Fetching times for {numRolls} successful rolls...")
         self.dev.dma.enable(True, self.dev.dma.calDmaMode)
         for i in range(self.numLabs):
             final = i==(self.numLabs-1)

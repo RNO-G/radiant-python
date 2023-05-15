@@ -1,5 +1,6 @@
 # Python code for handling the ADF4351
 # for signal generation.
+import logging
 import adf435x.interfaces
 from adf435x import calculate_regs, make_regs
 import time
@@ -13,8 +14,9 @@ import time
 # then of course something like dev.calSelect(0) to select the quad
 # that gets the signal.
 class RadSig:
-    def __init__(self, dev):
+    def __init__(self, dev, logger=logging.getLogger('root')):
         self.dev = dev
+        self.logger = logger
         self.adf4351 = adf435x.interfaces.RadSig(dev)
         self.gpioaddr = dev.map['BM_I2CGPIO_BASE']+4*6
         
@@ -66,9 +68,9 @@ class RadSig:
                 # CAL_FIL=11: set bit 2 and 0
                 cur |= 0b00000101
             else:
-                print("Illegal band, must be 0/1/2/3")
+                self.logger.error("Illegal band, must be 0/1/2/3")
                 return
-        print("write", bin(cur))
+        self.logger.debug(f"write {cur:#b}")
         self.dev.write(self.gpioaddr, cur)
             
 
