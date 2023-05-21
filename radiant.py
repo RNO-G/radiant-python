@@ -19,7 +19,12 @@ from .spi import SPI
 
 from .bf import bf
 
-import Adafruit_BBIO.GPIO as GPIO
+from .util import DateVersion, register_to_string
+
+try:
+	import Adafruit_BBIO.GPIO as GPIO
+except:
+	pass
 
 
 class RADIANT:
@@ -66,25 +71,6 @@ class RADIANT:
 			'BM_TRIGDAC_BASE': 0x400080,			
 			'BM_PEDESTAL':     0x4000E0			
 			}
-
-	class DateVersion:
-		def __init__(self, val):
-			self.major = (val >> 12) & 0xF
-			self.minor = (val >> 8) & 0xF
-			self.rev = (val & 0xFF)
-			self.day = (val >> 16) & 0x1F
-			self.mon = (val >> 21) & 0xF
-			self.year = (val >> 25) & 0x7F
-		
-		def __str__(self):
-			return f'v{self.major}.{self.minor}.{self.rev} {self.mon}/{self.day}/{self.year}'
-		
-		def __repr__(self):
-			val = (self.year << 25) | (self.mon << 21) | (self.day << 16) | (self.major<<12) | (self.minor<<8) | self.rev
-			return f'RADIANT.DateVersion({val})'
-        
-		def toDict(self):
-			return { 'version': f'{self.major}.{self.minor}.{self.rev}', 'date': f'{self.year+2000}-{self.mon:02d}-{self.day:02d}' }
 	
 	class BurstType(enum.Enum):
 		BYTE = 0x000
@@ -245,6 +231,9 @@ class RADIANT:
 		if endBurst:
 			self.write(self.map['BM_CONTROL'], 0)
 	
+	def readReg(self, name):
+		return self.read(self.map[name])
+
 	# these are hidden functions, they're
 	# pulled from the interface type
 	# yes, I need a better way of doing this
@@ -324,21 +313,14 @@ class RADIANT:
 		self.write(self.map['BM_PEDESTAL']+4, val)
 		
 	def identify(self):
-		def str4(num):
-			id = str(chr((num>>24)&0xFF))
-			id += chr((num>>16) & 0xFF)
-			id += chr((num>>8) & 0xFF)
-			id += chr(num & 0xFF)
-			return id
-			
-		bid = str4(self.read(self.map['BM_ID']))
-		bver = self.DateVersion(self.read(self.map['BM_DATEVERSION']))
+		bid = register_to_string(self.readReg('BM_ID'))
+		bver = DateVersion(self.readReg('BM_DATEVERSION'))
 
-		status = self.read(self.map['BM_STATUS'])
+		status = self.readReg('BM_STATUS')
 	
-		fid = str4(self.read(self.map['FPGA_ID']))
+		fid = register_to_string(self.readReg('FPGA_ID'))
 		if fid == "RDNT":
-			fver = self.DateVersion(self.read(self.map['FPGA_DATEVERSION']))
+			fver = DateVersion(self.readReg('FPGA_DATEVERSION'))
 			dna = self.dna()
 			return { 'board_manager_id': bid,
 					 'board_manager_version': bver.toDict(),

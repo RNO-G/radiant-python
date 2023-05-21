@@ -1,5 +1,8 @@
-from Adafruit_BBIO.SPI import SPI
-import Adafruit_BBIO.GPIO as GPIO
+try:
+	from Adafruit_BBIO.SPI import SPI
+	import Adafruit_BBIO.GPIO as GPIO
+except:
+	pass
 
 class BBSPI:
     def __init__(self):

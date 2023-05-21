@@ -1,9 +1,12 @@
 # Python code for handling the ADF4351
 # for signal generation.
 import logging
-import adf435x.interfaces
-from adf435x import calculate_regs, make_regs
 import time
+try:
+    import adf435x.interfaces
+    from adf435x import calculate_regs, make_regs
+except:
+    pass
 
 # How to use-
 # dev = RADIANT("/dev/ttyO5")

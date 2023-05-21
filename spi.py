@@ -2,7 +2,11 @@ import struct
 import sys
 import time
 # intelhex is horrible...
-import intelhex
+try:
+    import intelhex
+except:
+    pass
+
 from .bf import * 
 
 # THIS IS FOR AN SPI FLASH, not generic SPI

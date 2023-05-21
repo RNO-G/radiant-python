@@ -4,6 +4,26 @@ import pathlib
 import time
 
 
+class DateVersion(object):
+	def __init__(self, val):
+		self.major = (val >> 12) & 0xF
+		self.minor = (val >> 8) & 0xF
+		self.rev = (val & 0xFF)
+		self.day = (val >> 16) & 0x1F
+		self.mon = (val >> 21) & 0xF
+		self.year = (val >> 25) & 0x7F
+
+	def __str__(self):
+		return f'v{self.major}.{self.minor}.{self.rev} {self.mon}/{self.day}/{self.year}'
+
+	def __repr__(self):
+		val = (self.year << 25) | (self.mon << 21) | (self.day << 16) | (self.major<<12) | (self.minor<<8) | self.rev
+		return f'DateVersion({val})'
+
+	def toDict(self):
+		return { 'version': f'{self.major}.{self.minor}.{self.rev}', 'date': f'{self.year+2000}-{self.mon:02d}-{self.day:02d}' }
+
+
 # niter - number of iterations
 # buff - window not to change it
 # step - steps to change the isels by
@@ -41,6 +61,14 @@ def calib_isels(radiant, niter=10, buff=32, step=4, voltage_setting=1250):
 
 	radiant.logger.info(f"Final isel values: {[radiant.calib.calib['specifics'][ch][10] for ch in range(24)]}")
 	radiant.calib.save(radiant.dna())
+
+
+def register_to_string(val):
+	id = str(chr((val >> 24) & 0xFF))
+	id += chr((val >> 16) & 0xFF)
+	id += chr((val >> 8) & 0xFF)
+	id += chr(val & 0xFF)
+	return id
 
 
 def reset(radiant):
