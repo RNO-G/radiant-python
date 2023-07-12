@@ -108,6 +108,11 @@ class RadCalib:
         self.calib['pedestals'] = rawped.reshape(24, 4096)
         self.logger.info("Update complete")
 
+    def getPedestals(self, asList=False):
+        if asList:
+            return self.calib['pedestals'].tolist()
+        return self.calib['pedestals']
+
     # assumes *nothing* other than the LAB4's been defaulted and testpatern mode is off
     # The initial tune finds the trim feedback and shifts all the trims to ensure
     # the slow sample is tunable
