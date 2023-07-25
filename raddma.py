@@ -1,5 +1,3 @@
-from .bf import bf
-
 class RadDMA:
     map = { 'CONFIG'   : 0x00,
             'CONTROL'  : 0x04,
@@ -53,6 +51,9 @@ class RadDMA:
         self.base = base
         self.spi = spi
         
+    def get_base(self):
+        return self.base
+
     def write(self, addr, value):
         self.dev.write(addr+self.base, value)
         
@@ -61,10 +62,10 @@ class RadDMA:
     
     def setDescriptor(self, num, addr, length, increment=False, final=True):
         if length <= 0 or length > 4096:
-            printf("length must be between 1-4096")
+            print("length must be between 1-4096")
             return
         if num > 31:
-            printf("descriptor number must be between 0-31")
+            print("descriptor number must be between 0-31")
             return
         # The FPGA's space is nominally 22 bit:
         # drop the bottom 2 (32-bit addresses only)

@@ -1,4 +1,3 @@
-from .bf import bf
 from enum import Enum
 
 class LAB4_Calram:
@@ -20,7 +19,7 @@ class LAB4_Calram:
 
     map = { 'CONTROL'   : 0x0000,
             'MODE'      : 0x0004,
-            'ROLLCOUNT' : 0x0008 };
+            'ROLLCOUNT' : 0x0008 }
         
     # Need a pointer to the LABC to handle forced triggering.
     def __init__(self, dev, base, labc, numLabs=24, labAllMagic=31):
@@ -74,6 +73,9 @@ class LAB4_Calram:
         else:
             print("Illegal calram mode")
             
+    def mode_str(self, mode):
+        self.mode(self.CalMode(mode))
+
     # Empty everything. The calrams have a way to do
     # this automatically. This only works if the LAB controller's NOT running.
     def zero(self, zerocrossOnly=False):

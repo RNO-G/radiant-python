@@ -77,6 +77,9 @@ class RadCalib:
     def lab4_specifics(self, lab):
         return self.calib['specifics'][lab]
 
+    def lab4_specifics_set(self, lab, key, value):
+        self.calib['specifics'][lab][key] = value
+
     def lab4_resetSpecifics(self, lab):
         self.calib['specifics'][lab] = self.generic.copy()
     
