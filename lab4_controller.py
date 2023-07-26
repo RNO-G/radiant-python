@@ -161,7 +161,7 @@ class LAB4_Controller:
                 width = self.scan_width(scanNum)
                 if width < 200 or width > 4000:
                     # not working
-                    self.logger.warning("Delay line not working (width", width, "), trying to kick")
+                    self.logger.warning(f"Delay line not working (width {width}), trying to kick")
                     self.l4reg(lab, 8, 2500)
                     time.sleep(0.1)
                     width = self.scan_width(scanNum)

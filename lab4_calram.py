@@ -29,6 +29,9 @@ class LAB4_Calram:
         self.numLabs = numLabs
         self.labAllMagic = labAllMagic
         
+    def get_base(self):
+        return self.base
+
     # each LAB gets 16 kB chunks
     def read(self, lab, addr):
         return self.dev.read(self.base + 16384*lab + addr)
