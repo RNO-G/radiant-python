@@ -1,5 +1,3 @@
-import enum
-import numpy as np
 import pathlib
 import time
 
@@ -89,52 +87,3 @@ def setup_radiant(radiant):
 	radiant.calram.zero()
 	radiant.calram.mode(radiant.calram.CalMode.NONE)
 	radiant.calib.updatePedestals()
-
-	np.save('peds.npy', radiant.calib.calib['pedestals'])
-
-
-class TuneResult(enum.Enum):
-	SUCCESS = enum.auto()
-	AUTOMATCH_FAIL = enum.auto()
-	TUNE_FAIL = enum.auto()
-	SKIPPED = enum.auto()
-
-
-def tune_initial(radiant, do_reset=False, mask=0xFFFFFF):
-	dna = radiant.dna()
-	radiant.calib.load(dna)
-
-	if do_reset:
-		for ch in range(24):
-			radiant.calib.lab4_resetSpecifics(ch)
-			if (mask & (1 << ch)):
-				radiant.labc.default(ch)
-		for ch in range(24):
-			if (mask & (1 << ch)):
-				radiant.labc.automatch_phab(ch)
-	else:
-		radiant.calib.load(dna)
-
-	fail_mask = 0x0
-	ok = list()
-	for ch in range(24):
-		if not (mask & (1 << ch)):
-			radiant.logger.warning(f"Skipping channel {ch}")
-			ok.append(TuneResult.SKIPPED)
-			continue
-		tuneok = radiant.calib.initialTune(ch)
-		if tuneok:
-			ok.append(TuneResult.SUCCESS)
-		else:
-			ok.append(TuneResult.TUNE_FAIL)
-			fail_mask |= (1 << ch)
-
-	for ch in range(len(ok)):
-		radiant.logger.info(f"LAB{ch} tune: {ok[ch].name}")
-	radiant.logger.info(f"Fail mask: {fail_mask:#X}")
-
-	radiant.calib.save(dna)
-	radiant.radsig.enable(False)
-	radiant.calSelect(None)
-
-	return fail_mask
