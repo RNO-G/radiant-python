@@ -231,8 +231,10 @@ class RADIANT:
 		if endBurst:
 			self.write(self.map['BM_CONTROL'], 0)
 	
-	def readReg(self, name):
-		return self.read(self.map[name])
+	def readReg(self, addr):
+		if isinstance(addr, str):
+			return self.read(self.map[addr])
+		return self.read(addr)
 
 	# these are hidden functions, they're
 	# pulled from the interface type
