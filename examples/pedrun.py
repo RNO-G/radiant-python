@@ -41,7 +41,7 @@ for i in range(512):
     dev.labc.force_trigger(block=True)
     dev.labc.force_trigger(block=True)
     dev.labc.force_trigger(block=True)
-    if i=511:
+    if i == 511:
         end='\n'
     else:
         end='\r'
@@ -56,7 +56,6 @@ dev.dma.enable(True, dev.dma.calDmaMode)
 # Change the length to 4096*4*24 for a full pedestal run
 len = 4096*4
 pedarr = dev.dma.dmaread(len)
-
 # Change this to 4096*24 for a full pedestal run
 for i in range(4096):
     val = pedarr[4*i]+(pedarr[4*i+1]<<8)+(pedarr[4*i+2]<<16)+(pedarr[4*i+3]<<24)
