@@ -165,7 +165,7 @@ class LAB4_Controller:
                     self.l4reg(lab, 8, 2500)
                     time.sleep(0.1)
                     width = self.scan_width(scanNum)
-                    self.logger.warning("Width now", width)
+                    self.logger.warning(f"Width now {width}")
                     if width < 200 or width > 4000:
                         self.logger.error("still not working, bailing")
                         err = True
@@ -192,7 +192,7 @@ class LAB4_Controller:
                     phab = phab ^ 0x01
                     
                 while phab != match:
-                    self.logger.warning("LAB%d wrong PHAB phase, resetting." % i)
+                    self.logger.warning(f"LAB{i} wrong PHAB phase, resetting.")
                     self.clr_phase(i)
                     phab = self.scan_value(scanNum, wr_edge) & 0x01
                     if self.invertSync:
@@ -299,9 +299,9 @@ class LAB4_Controller:
                 # this should be 4480 - the total length of the phase scanner
                 # but we give it some margin
                 if param[0] == 0 or param[0] > 4470.0:
-                    self.logger.warning(strb, ": not present")
+                    self.logger.warning(f"{strb}: not present")
                 else:
-                    self.logger.debug(strb, ": width ", param[0], "from", param[1], "-",param[2])
+                    self.logger.debug(f"{strb}: width ", param[0], "from", param[1], "-",param[2])
             for strb in ['SSPin', 'SSPout']:
                 self.set_tmon(lab, self.tmon[strb])
                 # get the first pulse
