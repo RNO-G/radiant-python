@@ -8,20 +8,20 @@ import time
 class LAB4_Controller:
  
         map = { 'CONTROL'			: 0x00000,
-                'SHIFTPRESCALE'		        : 0x00004,
-		'RDOUTPRESCALE'		        : 0x00008,
-		'WILKDELAY'			: 0x0000C,
-		'WILKMAX'			: 0x00010,
-		'TPCTRL'			: 0x00014,
-		'L4REG'				: 0x00018,
-                'PHASECMD'                      : 0x00020,
-                'PHASEARG'                      : 0x00024,
-                'PHASERES'                      : 0x00028,
-                'PHASEZERO'                     : 0x0002C,
-                'PHASEPB'                       : 0x0003C,
-		'TRIGGER'			: 0x00054,
-                'READOUT'                       : 0x00058,
-                'READOUTEMPTY'                  : 0x0005C,
+                'SHIFTPRESCALE'		: 0x00004,
+                'RDOUTPRESCALE'		: 0x00008,
+                'WILKDELAY'			: 0x0000C,
+                'WILKMAX'			: 0x00010,
+                'TPCTRL'			: 0x00014,
+                'L4REG'				: 0x00018,
+                'PHASECMD'          : 0x00020,
+                'PHASEARG'          : 0x00024,
+                'PHASERES'          : 0x00028,
+                'PHASEZERO'         : 0x0002C,
+                'PHASEPB'           : 0x0003C,
+		        'TRIGGER'			: 0x00054,
+                'READOUT'           : 0x00058,
+                'READOUTEMPTY'      : 0x0005C,
                 'pb'				: 0x0007C,
                 }
                 
@@ -110,6 +110,7 @@ class LAB4_Controller:
             self.write(self.map['READOUTEMPTY'], threshold)
 
         def load_defaults(self, fn=path.dirname(__file__)+"/lab4defaults_3G2.p"):
+            #if sampling rate fn = something else somethingelse
             if not path.isfile(fn):
                 print("Cannot open file ", fn)
             self.defaults = pickle.load(open(fn, "rb"))
@@ -199,29 +200,49 @@ class LAB4_Controller:
             return err
 
         def autotune_vadjp(self, lab, initial=2700):
-                self.set_tmon(lab, self.tmon['SSPin'])
+
+                self.set_tmon(lab, self.tmon['SSTout'])
                 self.montimingSelectFn(lab)
                 scanNum = self.labMontimingMapFn(lab)
-                
-                rising=self.scan_edge(scanNum, 1, 0)
-                if rising == 0xFFFF:
-                    print("No rising edge on VadjP: looks stuck")
-                    return
-                falling=self.scan_edge(scanNum, 0, rising+100)
-                if falling == 0xFFFF:
-                    print("No falling edge on VadjP: looks stuck")
-                    return
-                
-                width=falling-rising
-                if width < 0:
-                        print("Width less than 0, do something.")
-                        return
-                width = int(width*1.05)
-                print("SSPout target: ", width)
                 vadjp=initial
+                has_sstout=False
+                idelta=5
+                while not has_sstout:
+                    
+                    rising=self.scan_edge(scanNum, 1, 0)
+                    if rising == 0xFFFF:
+                        print("No rising edge on VadjP: looks stuck")
+                        #vadjp+=idelta
+                        self.dev.calib.lab4_resetSpecifics(lab) 
+                        self.dev.labc.default(lab) 
+                        self.dev.labc.automatch_phab(lab) 
+
+                        #self.l4reg(lab, 8, vadjp)
+                        continue
+                    falling=self.scan_edge(scanNum, 0, rising+100)
+
+                    if falling == 0xFFFF:
+                        print("No falling edge on VadjP: looks stuck")
+                        vadjp+=idelta
+                        self.l4reg(lab, 8, vadjp)
+                        continue
+                    
+                    width=falling-rising
+                    if width < 0:
+                        print("Width less than 0, do something.")
+                        vadjp+=idelta
+                        self.l4reg(lab, 8, vadjp)
+                        continue
+
+                    has_sstout=True
+                    #self.l4reg(lab, 8, vadjp)
+
+                width = 2257/2
+                print("SSTout target: ", width)
+                #vadjp=initial
                 delta=20
                 self.l4reg(lab, 8, vadjp)
-                self.set_tmon(lab, self.tmon['SSPout'])
+                self.set_tmon(lab, self.tmon['SSTout'])
                 rising=self.scan_edge(scanNum, 1, 0)
                 falling=self.scan_edge(scanNum, 0, rising+100)
                 trial=falling-rising
@@ -291,8 +312,11 @@ class LAB4_Controller:
         ''' dump timing parameters '''
         def scan_dump(self, lab):
             self.montimingSelectFn(lab)
+            width_time_conversion=128/2.4/2257/2
+            time_conversion=128/2.4/2257 #this converts the arb values to a time
+
             scanNum = self.labMontimingMapFn(lab)            
-            for strb in ['A1', 'A2', 'B1', 'B2']:
+            for strb in ['A1', 'A2', 'B1', 'B2','WR_STRB','PHAB']:
                 self.set_tmon(lab, self.tmon[strb])
                 param = self.scan_pulse_param(scanNum, 0)
                 # this should be 4480 - the total length of the phase scanner
@@ -300,8 +324,8 @@ class LAB4_Controller:
                 if param[0] == 0 or param[0] > 4470.0:
                     print(strb, ": not present")
                 else:
-                    print(strb, ": width ", param[0], "from", param[1], "-",param[2])
-            for strb in ['SSPin', 'SSPout']:
+                    print(strb, ": width %0.3f from %0.3f - %0.3f"%( param[0]*width_time_conversion, param[1]*time_conversion, param[2]*time_conversion))
+            for strb in ['SSPin', 'SSPout','SSTout','PHASE']:
                 self.set_tmon(lab, self.tmon[strb])
                 # get the first pulse
                 p1 = self.scan_pulse_param(scanNum, 0)
@@ -310,7 +334,7 @@ class LAB4_Controller:
                     continue
                 # get the second pulse, after the end of the first
                 p2 = self.scan_pulse_param(scanNum, p1[2])
-                print(strb, ": width ", p1[0], "from", p1[1],"-",p1[2], "and", p2[1], "-", p2[2])
+                print(strb, ": width %0.3f from %0.3f - %0.3f and %0.3f - %0.3f"%(p1[0]*width_time_conversion, p1[1]*time_conversion,p1[2]*time_conversion,  p2[1]*time_conversion,  p2[2]*time_conversion))
                 
         def scan_pulse_param(self, scan, start):
             param = []
@@ -575,10 +599,10 @@ class LAB4_Controller:
            return int(user)
 
         ''' update the *specifics* for a given lab4 '''
-        def update(self, lab4):
+        def update(self, lab4, verbose=False):
             spec = self.calibrations.lab4_specifics(lab4)
             for item in spec.items():
-                self.l4reg(lab4, item[0], item[1])
+                self.l4reg(lab4, item[0], item[1],verbose=verbose)
                 
         ''' fully initialize a LAB4 '''
         def default(self, lab4=None, initial=True):

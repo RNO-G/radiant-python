@@ -3,7 +3,7 @@ from enum import Enum
 from radcpld import RadCPLD
 from lab4_controller import LAB4_Controller
 from lab4_calram import LAB4_Calram
-
+from raddelays import RadDelays
 from radcalib import RadCalib
 from radsig import RadSig
 from radjtag import RadJTAG
@@ -53,6 +53,7 @@ class RADIANT:
 			'LAB4_CTRL_BASE' :   0x10000,
 			'LAB4_CALRAM_BASE' : 0x80000,
 			'PWM_BASE' : 0x30200,
+			'CHANNEL_DELAYS':0x10080,
 			'BM_ID' :   0x400000,
 			'BM_DATEVERSION' : 0x400004,
 			'BM_STATUS' : 0x400008,
@@ -142,6 +143,12 @@ class RADIANT:
 		
 		# SPI Flash
 		self.spi = SPI(self, self.map['SPIBASE'], initialize=False)
+
+		# Radiant Readout Delays
+		self.raddelays = RadDelays(self)
+		
+		#hardcode sampling rate for build_lab_defaults.py ... can be read from board manager as of 0.3.16?
+		self.SAMPLING_RATE=2400
 
 	# Issues an ICAP reboot to the FPGA.
 	# Image 0 = golden (address = 0x0)
