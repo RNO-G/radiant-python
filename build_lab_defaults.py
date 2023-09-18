@@ -5,7 +5,7 @@ from radiant import RADIANT
 
 if RADIANT.SAMPLING_RATE == 2400:
     speed_desc='2G4'
-if RADIANT.SAMPLING_RATE == 2400:
+else: # RADIANT.SAMPLING_RATE == 2400:
     speed_desc='3G2'
 
 

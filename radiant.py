@@ -20,6 +20,9 @@ import Adafruit_BBIO.GPIO as GPIO
 import time
 
 class RADIANT:
+
+	#hardcode to make it easy
+	SAMPLING_RATE=2400
 	## NOTE THIS IS A STATIC FUNCTION
 	def boardmanReset():
 		GPIO.setup("P8_30", GPIO.OUT, pull_up_down=GPIO.PUD_UP, initial=GPIO.HIGH)
@@ -102,11 +105,18 @@ class RADIANT:
 			self.read = self.dev.read
 			self.write = self.dev.write
 			self.writeto = self.dev.writeto
+		
+		
+		#hardcode sampling rate for build_lab_defaults.py ... can be read from board manager as of 0.2.16
+		
 
 		# create the calibration interface. Starts off being unloaded.
 		# Will be loaded when a DNA's present.
 		# If we try to use without a DNA, use lab4generic_3G2.p's parameters.
-		self.calib = RadCalib(self, os.path.dirname(__file__)+"/lab4generic_3G2.p")
+		if self.SAMPLING_RATE==2400: def_filename="/lab4generic_2G4.p"
+		else: def_filename="/lab4generic_3G2.p" #3200
+
+		self.calib = RadCalib(self, os.path.dirname(__file__)+def_filename)
 		self.jtag = RadJTAG(self)
 			
 		# create the CPLDs. These are really only for JTAG configuration.
@@ -146,9 +156,6 @@ class RADIANT:
 
 		# Radiant Readout Delays
 		self.raddelays = RadDelays(self)
-		
-		#hardcode sampling rate for build_lab_defaults.py ... can be read from board manager as of 0.3.16?
-		self.SAMPLING_RATE=2400
 
 	# Issues an ICAP reboot to the FPGA.
 	# Image 0 = golden (address = 0x0)
