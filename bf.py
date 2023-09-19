@@ -48,4 +48,5 @@ class bf(object):
         return (self._d >> start) & mask
     
     def __int__(self):
+        self._d=int(self._d)
         return self._d
