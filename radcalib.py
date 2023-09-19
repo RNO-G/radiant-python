@@ -24,13 +24,13 @@ class RadCalib:
     # do something at init
     # trigsPerRoll is the number of triggers I have to generate
     # to get through a full 4096 samples
-    def __init__(self, dev, genericFn, numLabs=24, trigsPerRoll=4, channelMask=0, calibPath="./calib"):
+    def __init__(self, dev, genericFn, numLabs=24, trigsPerRoll=4, channelMask=0, calibPath="./calib",sampling_rate=2400):
         self.dev = dev
         self.trigsPerRoll = 4
         self.channelMask = 0
         self.numLabs=numLabs
         self.calibPath = calibPath
-        self.nomSample=416.66 #312.5ps for 3.2 GHz, 416.6ps for 2.4GHz
+        self.nomSample=1/sampling_rate #416.6 as 2400MHz , 312.5ps for 3200MHz
 
         os.makedirs(calibPath, exist_ok=True) 
         # Build up a generic RADIANT: 24x generic parameters, all independent

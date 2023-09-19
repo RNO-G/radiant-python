@@ -116,7 +116,7 @@ class RADIANT:
 		if self.SAMPLING_RATE==2400: def_filename="/lab4generic_2G4.p"
 		else: def_filename="/lab4generic_3G2.p" #3200
 
-		self.calib = RadCalib(self, os.path.dirname(__file__)+def_filename)
+		self.calib = RadCalib(self, os.path.dirname(__file__)+def_filename,sampling_rate=self.SAMPLING_RATE)
 		self.jtag = RadJTAG(self)
 			
 		# create the CPLDs. These are really only for JTAG configuration.
