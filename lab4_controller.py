@@ -109,7 +109,7 @@ class LAB4_Controller:
         def readoutempty(self, threshold):
             self.write(self.map['READOUTEMPTY'], threshold)
 
-        def load_defaults(self, fn=path.dirname(__file__)+"/lab4defaults_3G2.p"):
+        def load_defaults(self, fn=path.dirname(__file__)+"/lab4defaults_2G4.p"):
             #if sampling rate fn = something else somethingelse
             if not path.isfile(fn):
                 print("Cannot open file ", fn)
