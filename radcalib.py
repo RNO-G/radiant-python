@@ -30,7 +30,7 @@ class RadCalib:
         self.channelMask = 0
         self.numLabs=numLabs
         self.calibPath = calibPath
-        self.nomSample=1/sampling_rate #416.6 as 2400MHz , 312.5ps for 3200MHz
+        self.nomSample=1/sampling_rate*10**6 #416.6 as 2400MHz , 312.5ps for 3200MHz
 
         os.makedirs(calibPath, exist_ok=True) 
         # Build up a generic RADIANT: 24x generic parameters, all independent
