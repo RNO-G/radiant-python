@@ -23,8 +23,7 @@ class RadDelays:
 
         print('checking written values')
         self.read_delays()
-
-	print('done')
+        print('done')
 
     def read_delays(self):
         print('RF0 delays: getting ',self.dev.read(self.rf0_delay_addr),' from ',self.rf0_delay_addr)
