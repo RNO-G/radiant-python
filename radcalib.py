@@ -128,7 +128,7 @@ class RadCalib:
         initialState = self.calib['specifics'][lab] 
         self.dev.labc.update(lab)  # make sure we are using the initial state
         #balance sstin/sstout widths
-        self.calib['specifics'][lab][8]=self.dev.labc.autotune_vadjp(lab,initial=self.calib['specifics'][lab][8])
+        #self.calib['specifics'][lab][8]=self.dev.labc.autotune_vadjp(lab,initial=self.calib['specifics'][lab][8]) #this guy can break things but might be useful to keep
         self.dev.labc.update(lab)  # make sure we are using the initial state
         
         self.dev.monSelect(lab)
@@ -293,7 +293,14 @@ class RadCalib:
             print("Seam/slow sample timing now:", t[lab][0], t[lab][127])
             print("mean of middle sample timings now:", np.mean(t[lab][1:127]))
             meanSample=np.mean(t[lab][1:126])
+            if curTry == maxTries:
+                print("initial tune failed! Restoring initial state.")
+                self.calib['specifics'][lab] = initialState
+                self.dev.labc.update(lab)
+                return False
+            curTry=curTry+1
             
+        
         t = self.getTimeRun(freq*1e6, verbose=False)
         
         seamSample = t[lab][0]
