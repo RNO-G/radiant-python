@@ -78,7 +78,7 @@ class LAB4_Controller:
             self.labMontimingMapFn = kwargs['labMontimingMapFn']
             self.montimingSelectFn = kwargs['montimingSelectFn']
             self.regclrAll = kwargs['regclrAll']
-                
+            self.sampling_rate=kwargs['sampling_rate']
             self.pb = picoblaze.PicoBlaze(self, self.map['pb'])
             self.phasepb = picoblaze.PicoBlaze(self,self.map['PHASEPB'])
 
@@ -109,8 +109,17 @@ class LAB4_Controller:
         def readoutempty(self, threshold):
             self.write(self.map['READOUTEMPTY'], threshold)
 
-        def load_defaults(self, fn=path.dirname(__file__)+"/lab4defaults_2G4.p"):
+        def load_defaults(self, fn=""): #hardcoded!!! needs to change
+            #fn=path.dirname(__file__)+"/lab4defaults_2G4.p"
             #if sampling rate fn = something else somethingelse
+            
+            #sampling_rate=2400
+            fn=path.dirname(__file__)
+            if self.sampling_rate==2400: #overwrite the filename based on sampling rate
+                fn=fn+"/lab4defaults_2G4.p"
+            else: #3200
+                fn=fn+"/lab4defaults_3G2.p"
+
             if not path.isfile(fn):
                 print("Cannot open file ", fn)
             self.defaults = pickle.load(open(fn, "rb"))
@@ -200,14 +209,19 @@ class LAB4_Controller:
             return err
 
         def autotune_vadjp(self, lab, initial=2700):
-
+                print('\nAutotune VadjP')
                 self.set_tmon(lab, self.tmon['SSTout'])
                 self.montimingSelectFn(lab)
                 scanNum = self.labMontimingMapFn(lab)
                 vadjp=initial
                 has_sstout=False
                 idelta=5
+                kick_tries=0
                 while not has_sstout:
+                    kick_tries=kick_tries+1
+                    if kick_tries>4:
+                        print('kicking not working...')
+                        return vadjp
                     
                     rising=self.scan_edge(scanNum, 1, 0)
                     if rising == 0xFFFF:
@@ -237,6 +251,7 @@ class LAB4_Controller:
                     has_sstout=True
                     #self.l4reg(lab, 8, vadjp)
 
+
                 width = 2257/2
                 print("SSTout target: ", width)
                 #vadjp=initial
@@ -250,6 +265,7 @@ class LAB4_Controller:
                         print("Trial width less than 0, do something.")
                         return
                 oldtrial=trial
+                tune_tries=0
                 while abs(trial-width) > 2:
                         if trial < width:
                                 if oldtrial > width:
@@ -270,6 +286,10 @@ class LAB4_Controller:
                         falling=self.scan_edge(scanNum, 0, rising+100)
                         trial=falling-rising
                         print("Trial: vadjp %d width %f target %f" % ( vadjp, trial, width))
+                        tune_tries=tune_tries+1
+                        if tune_tries>10:
+                            print('autotune vadjp stuck... returning initial value')
+                            return initial
                 return vadjp
                 
         def autotune_vadjn(self, lab):
