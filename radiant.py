@@ -19,6 +19,8 @@ from bf import bf
 import Adafruit_BBIO.GPIO as GPIO
 import time
 
+RADIANT_SAMPLING_RATE = 2400
+
 class RADIANT:
 
 	#hardcode to make it easy
@@ -137,7 +139,8 @@ class RADIANT:
 			   'invertSync' : True,
 			   'labMontimingMapFn' : lambda lab: int(lab/12),
 			   'montimingSelectFn' : self.monSelect,
-			   'regclrAll' : 0x1 }
+			   'regclrAll' : 0x1 ,
+			   'sampling_rate': self.SAMPLING_RATE}
 			
 		# Dummy calibration for now. Need to redo the calibration core anyway.		
 		self.labc = LAB4_Controller(self, self.map['LAB4_CTRL_BASE'], self.calib, **config)
