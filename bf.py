@@ -21,6 +21,7 @@ class bf(object):
         return (self._d >> index) & 1
     
     def __setitem__(self,index,value):
+        value = int(value)
         if type(index) is slice:
             self.__setslice__(index.start, index.stop, value)
             return
@@ -48,5 +49,4 @@ class bf(object):
         return (self._d >> start) & mask
     
     def __int__(self):
-        self._d=int(self._d)
         return self._d
