@@ -236,22 +236,29 @@ class RadCalib:
             diff = np.abs(seamSample - self.nomSample)
             s_diff=seamSample-self.nomSample
             if seamTuneNum == 3: 
-                delta=1
+                delta=  1
             else:
-                delta = 1 #was 3, takes longer but oh well
-                if diff > 100:
-                    delta += 1
-                if mode=='mean' and diff > .5:
+                delta = 1 #was 3, takes longer but oh well. better granularity when we're close
+                #seam tuning
+                if mode == 'seam' and diff > 100:
+                    delta += random.randint(1,3) #randomness back in
+                if mode =='seam' and diff > 300:
+                    delta += random.randint(2,6) #max step size of 10. don't want to jump past optimal point too much
+
+                #mean tuning. diff is sizably different from the seam diff
+                if mode=='mean' and diff > 0.3:
                     delta += 3
-                #if seamSample < 290:
-                #    delta = -1*delta
+                if mode=='mean' and diff > 0.6:
+                    delta += 6
+
+                #switch signs of delta if using VadjN or if we need to change directions
                 if seamTuneNum ==3: 
                     delta = -1*delta
                 if mode=='seam' and s_diff<0:
                     delta=-1*delta
                 if mode=='mean' and s_diff>0:
                     delta=-1*delta
-                #else: delta=np.abs(delta)
+
             cur = self.calib['specifics'][lab][seamTuneNum]
             newVal = cur+delta; 
             #if newVal < (self.nomSample*1.28): 
@@ -277,10 +284,9 @@ class RadCalib:
             print("Slow sample: LAB%d (%f): %d -> %d" % (lab, slowSample, oldavg, oldavg + slow_step))
             oldavg = oldavg + slow_step
 
-        print('first find mean sample so timing is close')
-        bouncing=0
+        print('\nfirst find mean sample so timing is close')
         last_seam=seamSample
-        mean_slow_factor=1.001
+        mean_slow_factor=1.001 #0.1% of 416.66 means this ends when the mean is ~0.4ps off of ideal. seam sample should close enough then.
         mean_fast_factor=0.999
         meanSample=np.mean(t[lab][1:126])
         while(meanSample>self.nomSample*mean_slow_factor or meanSample<self.nomSample*mean_fast_factor):
@@ -300,17 +306,15 @@ class RadCalib:
                 return False
             curTry=curTry+1
             
-        
         t = self.getTimeRun(freq*1e6, verbose=False)
-        
         seamSample = t[lab][0]
-        #seamSample = np.mean(t[lab][1:127])
-
+        #seamSample = np.mean(t[lab][1:127]) #hack for bad seam on labs. do this and change mode to mean below here
         slowSample = t[lab][127]
+        
+        bouncing=0 #dumb way to check if we're boucing around the nominal range set by slow and fast factors
+        #if it bounces then adjust slow, which is likely off, then continue with seam (mean)
 
-        #slow sample too fast. slow
-        #slowSample < (self.nomSample*0.98) or slowSample>(self.nomSample*1.02) or seamSample > (self.nomSample*1.02) or (seamSample < (self.nomSample*0.98) and oldavg < 2600):
-        #old slowSample < (self.nomSample*0.928) or seamSample > (self.nomSample*1.12) or (seamSample < (self.nomSample*0.928) and oldavg < 2600)
+        print('\nnow tune seam and slow samples')
         while slowSample < (self.nomSample*fast_factor) or slowSample>(self.nomSample*slow_factor) or seamSample > (self.nomSample*slow_factor) or seamSample < (self.nomSample*fast_factor):
             if curTry >= maxTries:
                 print("initial tune failed! Restoring initial state.")
@@ -380,6 +384,10 @@ class RadCalib:
         print("Ending seam sample :", t[lab][0],"feedback",self.calib['specifics'][lab][seamTuneNum],"using register ",seamTuneNum)
         print("Ending slow sample :", t[lab][127],"average earlier trims", oldavg)
         print("Timing through all samples :", np.sum(t[lab][0:128])/1000," ns... only ",53.333-np.sum(t[lab][0:128])/1000, " ns off")
+        
+        #turn these off so they don't run in the background
+        self.dev.calSelect(int(lab/4))
+        self.dev.radsig.enable(False)
         return True
        
     # Gets times from a zero-crossing run. Assumes pedestals loaded, sine wave running.
