@@ -219,7 +219,7 @@ class LAB4_Controller:
                 kick_tries=0
                 while not has_sstout:
                     kick_tries=kick_tries+1
-                    if kick_tries>4:
+                    if kick_tries>5:
                         print('kicking not working...')
                         return vadjp
                     
@@ -287,7 +287,7 @@ class LAB4_Controller:
                         trial=falling-rising
                         print("Trial: vadjp %d width %f target %f" % ( vadjp, trial, width))
                         tune_tries=tune_tries+1
-                        if tune_tries>10:
+                        if tune_tries>20:
                             print('autotune vadjp stuck... returning initial value')
                             return initial
                 return vadjp

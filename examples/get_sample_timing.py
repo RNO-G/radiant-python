@@ -4,6 +4,14 @@ import numpy as np
 import time
 import copy
 from os import path
+import os
+import sys
+
+
+mask=0xffffff
+if len(sys.argv) > 1: 
+    mask = int(sys.argv[1],0)
+
 
 #dev.calib.resetCalib()
 #dna = dev.dna()
@@ -17,12 +25,20 @@ dev.calib.updatePedestals()
 
 np.save("peds.npy", dev.calib.calib['pedestals'])
 
+if not os.path.exists('timing_data/'):
+    os.mkdir('timing_data')
+
 #print timing
 labs=[8]
 labs=np.arange(0,24,1)
-for i in range(1):
+for j in range(1):
     print()
-    for lab in labs:
+    for i in range(24):
+
+        if not (mask & (1 <<i)):
+            print('skipping lab ',i)
+            continue 
+        lab=i
         print(lab)
         #dump strobes 
         dev.labc.scan_dump(lab)
@@ -42,6 +58,9 @@ for i in range(1):
         np.savez('timing_data/lab_%i.npz'%lab,timing=t[lab][0:128])
         time.sleep(0.2)
         print()
+
+dev.calSelect()
+dev.radsig.enable(False)
 #for lab in labs:
 #    print('lab ',lab,' dumping internal strobes')
 #    dev.labc.scan_dump(lab)

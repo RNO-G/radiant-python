@@ -51,9 +51,7 @@ dev.labc.default(dev.labc.labAll)
 
 print('autmatch phab')
 dev.labc.automatch_phab(dev.labc.labAll)
-#dev.check_time_run()
-#for i in range(24):
-#    dev.labc.autotune_vadjn(i)
+
 dev.calib.resetCalib()
 dna = dev.dna()
 dev.calib.load(dna)

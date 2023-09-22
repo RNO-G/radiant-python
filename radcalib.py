@@ -112,8 +112,7 @@ class RadCalib:
     # The initial tune finds the trim feedback and shifts all the trims to ensure
     # the slow sample is tunable
 
-    def initialTune(self, lab, maxTries=50, freq=510,  tryReg3ForFailedDLL=True, verbose=False):
-        
+    def initialTune(self, lab, maxTries=50, freq=510,  tryReg3ForFailedDLL=True, verbose=False,bad_LAB=False):
         
         # Start off by dead-reckoning the initial target
         # Start off by trying to use the DLL.
@@ -128,7 +127,7 @@ class RadCalib:
         initialState = self.calib['specifics'][lab] 
         self.dev.labc.update(lab)  # make sure we are using the initial state
         #balance sstin/sstout widths
-        #self.calib['specifics'][lab][8]=self.dev.labc.autotune_vadjp(lab,initial=self.calib['specifics'][lab][8]) #this guy can break things but might be useful to keep
+        self.calib['specifics'][lab][8]=self.dev.labc.autotune_vadjp(lab,initial=self.calib['specifics'][lab][8]) #this guy can break things but might be useful to keep
         self.dev.labc.update(lab)  # make sure we are using the initial state
         
         self.dev.monSelect(lab)
@@ -223,8 +222,12 @@ class RadCalib:
         do_quit=False
         # No idea if this second condition (oldavg < 2400) will work with different sampling rates!!
         # I doubt it!!
-        slow_factor=1.03
-        fast_factor=0.97
+        seam_slow_factor=1.03
+        seam_fast_factor=0.97
+        
+        slow_slow_factor=1.03
+        slow_fast_factor=0.97 #confusing IK but it's slow sample
+
         slow_step=10 #was 25
 
         def adjust_seam(seamSample,mode='seam'):
@@ -240,9 +243,9 @@ class RadCalib:
             else:
                 delta = 1 #was 3, takes longer but oh well. better granularity when we're close
                 #seam tuning
-                if mode == 'seam' and diff > 100:
+                if mode == 'seam' and diff > 50:
                     delta += random.randint(1,3) #randomness back in
-                if mode =='seam' and diff > 300:
+                if mode =='seam' and diff > 100:
                     delta += random.randint(2,6) #max step size of 10. don't want to jump past optimal point too much
 
                 #mean tuning. diff is sizably different from the seam diff
@@ -269,10 +272,10 @@ class RadCalib:
             self.calib['specifics'][lab][seamTuneNum] = newVal
 
         def adjust_slow(slowSample,slow_step):
-            if slowSample> (self.nomSample*slow_factor):
+            if slowSample> (self.nomSample*slow_slow_factor):
                 slow_step=np.abs(slow_step)
                 print('need to speed up slow sample')
-            elif slowSample<(self.nomSample*fast_factor):
+            elif slowSample<(self.nomSample*slow_fast_factor):
                 slow_step=-slow_step
                 print('need to slow down slow sample')
             oldavg = 0
@@ -314,10 +317,20 @@ class RadCalib:
         bouncing=0 #dumb way to check if we're boucing around the nominal range set by slow and fast factors
         #if it bounces then adjust slow, which is likely off, then continue with seam (mean)
 
+        tune_mode='seam'#default
+        if bad_LAB==True:
+            tune_mode='mean'
+            seam_slow_factor=mean_slow_factor
+            seam_fast_factor=mean_fast_factor
+            seamSample=np.mean(t[lab][1:127]) #trick it to be the right thing. I should probably just pass both to adjust seam
+            print('using the mean sample instead')
+        else: #tuning seam - do nothing
+            pass
+            
         print('\nnow tune seam and slow samples')
-        while slowSample < (self.nomSample*fast_factor) or slowSample>(self.nomSample*slow_factor) or seamSample > (self.nomSample*slow_factor) or seamSample < (self.nomSample*fast_factor):
+        while slowSample < (self.nomSample*slow_fast_factor) or slowSample>(self.nomSample*slow_slow_factor) or seamSample > (self.nomSample*seam_slow_factor) or seamSample < (self.nomSample*seam_fast_factor):
             if curTry >= maxTries:
-                print("initial tune failed! Restoring initial state.")
+                print("HIT MAX TRIES! Initial tune failed! Restoring initial state.")
                 self.calib['specifics'][lab] = initialState
                 self.dev.labc.update(lab)
                 return False
@@ -326,21 +339,23 @@ class RadCalib:
             #    print('!!!!samples very close!!!!')
             #    do_quit=True
 
+            #if diff(seam)>diff(slow) do seam?
+            #else slow>seam do slow. 
             # Fix the seam if it's gone off too much.
-            elif (seamSample < (self.nomSample*fast_factor) or seamSample > (self.nomSample*slow_factor)) and bouncing<3:
+            elif (seamSample < (self.nomSample*seam_fast_factor) or seamSample > (self.nomSample*seam_slow_factor)) and bouncing<3:
                 print('----------- SEAM off ----------')
-                adjust_seam(seamSample,mode='seam')
-                if last_seam>(self.nomSample*slow_factor) and seamSample<(self.nomSample*fast_factor):
+                adjust_seam(seamSample,mode=tune_mode)
+                if last_seam>(self.nomSample*seam_slow_factor) and seamSample<(self.nomSample*seam_fast_factor):
                     bouncing+=1
                 
-                elif last_seam<(self.nomSample*fast_factor) and seamSample>(self.nomSample*slow_factor):
+                elif last_seam<(self.nomSample*seam_fast_factor) and seamSample>(self.nomSample*seam_slow_factor):
                     bouncing+=1
                 last_seam=seamSample
                 if bouncing>3: print("bouncing")
                 
             # oldelif slowSample > (self.nomSample*0.928) and oldavg <2400:
             # oldelif slowSample > (self.nomSample*0.98) and oldavg <2400:
-            elif slowSample > (self.nomSample*slow_factor) or slowSample < (self.nomSample*fast_factor):
+            elif slowSample > (self.nomSample*slow_slow_factor) or slowSample < (self.nomSample*slow_fast_factor):
 
                 print('----------- SLOW off ----------')
                 
@@ -374,9 +389,12 @@ class RadCalib:
             if np.sum(t[lab][1:128]) > (self.nomSample*127.68):
                 print("Feedback LAB%d way off (%f): %d -> %d" % (lab, (self.nomSample*128)-np.sum(t[lab][1:128]), t[lab][0], -1*t[lab][0]))
                 t[lab][0] = -1*t[lab][0]
+
             seamSample=t[lab][0]
             #seamSample = np.mean(t[lab][1:127]) #make it the middle samples bc reasons
             slowSample = t[lab][127]
+            if tune_mode=='mean':
+                seamSample=np.mean(t[lab][1:127]) #trick it again :)
             curTry = curTry + 1
             if do_quit: 
                 print('')
