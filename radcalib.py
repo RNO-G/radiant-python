@@ -407,7 +407,90 @@ class RadCalib:
         self.dev.calSelect(int(lab/4))
         self.dev.radsig.enable(False)
         return True
-       
+    
+    #for this script we assume labs are on and have passed the initial tune
+    #each sample now fits into a distribution around the ideal sample timing, where the mean
+    #should be the ideal. so on the first iteration I will try to "compress" the distribution
+    #tighter around the ideal sample time. Assuming if I push the slow fast and the fast slow
+    #it shouldn't mess with the overall timing too much
+    def tune_samples(self,lab,freq=510,verbose=False):
+        pass
+        print('\nTrying to tune individual samples')
+        initialState = self.calib['specifics'][lab] 
+        self.dev.labc.update(lab)  # make sure we are using the initial state
+        self.dev.calSelect(int(lab/4))
+        self.dev.radsig.enable(False)
+        self.dev.radsig.signal(pulse=False, band = (2 if freq > 100 else 0))
+        # update the pedestals
+        self.updatePedestals()
+        # turn on the sine wave
+        self.dev.radsig.enable(True)
+        self.dev.radsig.setFrequency(freq)
+        # get the initial time loop
+
+        t = self.getTimeRun(freq*1e6, verbose=False)
+
+        oldavg = 0
+        for i in range(257, 383): #only changes the middle samples... hence not 128
+            oldavg += self.calib['specifics'][lab][i]
+        print(oldavg)
+        #to slow down a samlpe we sub tract from the spec. to speed up we add to it
+        #LOOP HERE
+        spread=np.std(t[lab][1:127])
+        print(spread)
+        mean_sample=np.mean(t[lab][1:127])
+        spread_success_range=10
+        ind_sample_dev=5
+        adjust=np.zeros(126)
+        tries=0
+        any_bigger=len(np.where(np.abs(t[lab]-self.nomSample)>10)[0])
+        print('how many outside range',any_bigger)
+        while(spread>spread_success_range or any_bigger>0):
+            print('\n',tries)
+            if tries>50:
+                print('too long')
+                self.calib['specifics'][lab] = initialState
+                self.dev.labc.update(lab)
+                return False
+
+            #adjust labs here
+            for sample in range(126):
+                reg=sample+257
+                if t[lab][sample]>self.nomSample+10: 
+                    self.calib['specifics'][lab][reg]=self.calib['specifics'][lab][reg]+1
+                elif t[lab][sample]<self.nomSample-10: 
+                    self.calib['specifics'][lab][reg]=self.calib['specifics'][lab][reg]-1
+
+                else: 
+                    pass #do nothing. this sample is ok
+            
+            print("Updating...", end='', flush=True)
+            self.dev.labc.update(lab,verbose=verbose)
+            print("done")
+            t = self.getTimeRun(freq*1e6, verbose=False)
+            spread=np.std(t[lab][1:127])
+            mean_sample=np.mean(t[lab][1:127])
+            any_bigger=len(np.where(np.abs(t[lab]-self.nomSample)>10)[0])
+            print('mean and std',mean_sample,spread)
+            print(any_bigger,' samples outside range')
+            tries=tries+1
+
+
+        print("Updating...", end='', flush=True)
+        self.dev.labc.update(lab,verbose=verbose)
+        print("done")
+        print('ending values')
+        spread=np.std(t[lab][1:127])
+        mean_sample=np.mean(t[lab][1:127])
+        print('seam, slow, mean, spread, proptime (ps)',t[lab][0],t[lab][127],mean_sample,spread,np.sum(t[lab][:]))
+        newavg = 0
+        for i in range(257, 383): #only changes the middle samples... hence not 128
+            newavg += self.calib['specifics'][lab][i]
+        print(newavg)
+        self.dev.calSelect(int(lab/4))
+        self.dev.radsig.enable(False)
+        return True
+
     # Gets times from a zero-crossing run. Assumes pedestals loaded, sine wave running.
     # Each run here *should* get us around 1960 zero crossings, which means
     # the precision of each is roughly 7 picoseconds, obviously reducing in quadrature
