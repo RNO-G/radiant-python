@@ -225,8 +225,8 @@ class RadCalib:
         seam_slow_factor=1.03
         seam_fast_factor=0.97
         
-        slow_slow_factor=1.03
-        slow_fast_factor=0.97 #confusing IK but it's slow sample
+        slow_slow_factor=1.01
+        slow_fast_factor=0.95 #confusing IK but it's slow sample. make is slightly fast
 
         slow_step=10 #was 25
 
@@ -445,7 +445,23 @@ class RadCalib:
         tries=0
         any_bigger=len(np.where(np.abs(t[lab]-self.nomSample)>10)[0])
         print('how many outside range',any_bigger)
-        while(spread>spread_success_range or any_bigger>0):
+       	slowest_sample=np.argmax(t[lab][1:127])+1
+        fastest_sample=np.argmin(t[lab][1:127])+1
+        print('fastest ',fastest_sample,' and slowest ',slowest_sample)
+        print('slowest is ',t[lab][slowest_sample]-self.nomSample,' too slow')
+        print('fastest is ',t[lab][fastest_sample]-self.nomSample,' too fast')
+        sam_2_reg=256
+        '''
+        while(t[lab][slowest_sample]-self.nomSample>10):
+            self.calib['specifics'][lab][slowest_sample+sam_2_reg]=self.calib['specifics'][lab][slowest_sample+sam_2_reg]-10
+            self.dev.labc.update(lab)
+            t=self.getTimeRun(freq*1e6,verbose=False)
+            print('reg ',self.calib['specifics'][lab][slowest_sample+sam_2_reg])
+            print('sample time %0.2f'%t[lab][slowest_sample])
+        exit()
+        '''
+        samples=np.arange(1,127,1)
+        while(spread>spread_success_range or any_bigger>10):
             print('\n',tries)
             if tries>50:
                 print('too long')
@@ -454,14 +470,13 @@ class RadCalib:
                 return False
 
             #adjust labs here
-            for sample in range(126):
-                reg=sample+257
+            for sample in samples:
+                reg=sample+sam_2_reg
                 if t[lab][sample]>self.nomSample+10: 
-                    self.calib['specifics'][lab][reg]=self.calib['specifics'][lab][reg]+1
+                    self.calib['specifics'][lab][reg]=self.calib['specifics'][lab][reg]-3
                 elif t[lab][sample]<self.nomSample-10: 
-                    self.calib['specifics'][lab][reg]=self.calib['specifics'][lab][reg]-1
-
-                else: 
+                    self.calib['specifics'][lab][reg]=self.calib['specifics'][lab][reg]+3
+                else:
                     pass #do nothing. this sample is ok
             
             print("Updating...", end='', flush=True)
