@@ -1,3 +1,17 @@
+# Documentation since lab4control isn't in the register docx
+# Info can also be found in the wiki under the Operations tab
+#
+# There's one delay for each of the Radiant triggers (since we should only need them on surface trigger events)
+# Delay settings are in units of sys clock cycles. (1/18.75MHz=53.33ns for 2400MHz sampling)
+# The settings are ints that can be from 0 (no delays) up to 127 (53.33ns*127)
+# The masks are group masks, 4 in total. Split between in-ice antennas and surface antennas on each side (ch 0-11 and ch 12-23)
+# The groups to channel masks are as follows:
+#    group 0 = 0b0001 => channels = 0-11 = 0x0001ff
+#    group 1 = 0b0010 => channels = 12-14 = 0x000e00
+#    group 2 = 0b0100 => channels = 15-20 = 0x1ff000
+#    group 3 = 0b1000 => channels = 21-23 = 0xe00000
+#
+
 class RadDelays:
     def __init__(self,dev):
         self.dev=dev
