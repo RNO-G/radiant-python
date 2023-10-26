@@ -112,7 +112,7 @@ class RadCalib:
     # The initial tune finds the trim feedback and shifts all the trims to ensure
     # the slow sample is tunable
 
-    def initialTune(self, lab, maxTries=50, freq=510,  tryReg3ForFailedDLL=True, verbose=False,bad_LAB=False):
+    def initialTune(self, lab, maxTries=50, freq=510,  tryReg3ForFailedDLL=True, verbose=False, bad_LAB=False):
         
         # Start off by dead-reckoning the initial target
         # Start off by trying to use the DLL.
