@@ -24,13 +24,13 @@ class RadCalib:
     # do something at init
     # trigsPerRoll is the number of triggers I have to generate
     # to get through a full 4096 samples
-    def __init__(self, dev, genericFn, numLabs=24, trigsPerRoll=4, channelMask=0, calibPath="./calib",sampling_rate=2400):
+    def __init__(self, dev, genericFn, numLabs=24, trigsPerRoll=4, channelMask=0, calibPath="./calib"):
         self.dev = dev
         self.trigsPerRoll = 4
         self.channelMask = 0
         self.numLabs=numLabs
         self.calibPath = calibPath
-        self.nomSample=1/sampling_rate*10**6 #416.6 as 2400MHz , 312.5ps for 3200MHz
+        self.nomSample=1/self.dev.SAMPLING_RATE*10**6 #416.6 as 2400MHz , 312.5ps for 3200MHz
 
         os.makedirs(calibPath, exist_ok=True) 
         # Build up a generic RADIANT: 24x generic parameters, all independent
@@ -228,6 +228,19 @@ class RadCalib:
         slow_slow_factor=1.01
         slow_fast_factor=0.95 #confusing IK but it's slow sample. make is slightly fast
 
+        mean_slow_factor=1.001 #0.1% of 416.66 means this ends when the mean is ~0.4ps off of ideal. seam sample should close enough then.
+        mean_fast_factor=0.999
+
+        if(self.dev.SAMPLING_RATE==3200): #help tuning a bit
+            seam_slow_factor=1.06
+            seam_fast_factor=0.94
+            
+            slow_slow_factor=1.03
+            slow_fast_factor=0.93 #confusing IK but it's slow sample. make is slightly fast
+
+            mean_slow_factor=1.003 #0.1% of 416.66 means this ends when the mean is ~0.4ps off of ideal. seam sample should close enough then.
+            mean_fast_factor=0.997
+
         slow_step=10 #was 25
 
         def adjust_seam(seamSample,mode='seam'):
@@ -289,8 +302,9 @@ class RadCalib:
 
         print('\nfirst find mean sample so timing is close')
         last_seam=seamSample
-        mean_slow_factor=1.001 #0.1% of 416.66 means this ends when the mean is ~0.4ps off of ideal. seam sample should close enough then.
-        mean_fast_factor=0.999
+
+
+
         meanSample=np.mean(t[lab][1:126])
         while(meanSample>self.nomSample*mean_slow_factor or meanSample<self.nomSample*mean_fast_factor):
             adjust_seam(meanSample,mode='mean')

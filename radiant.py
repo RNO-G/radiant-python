@@ -123,7 +123,7 @@ class RADIANT:
 			def_filename="/lab4generic_3G2.p" #3200
 			calib_dir='./calib_3200'
 
-		self.calib = RadCalib(self, os.path.dirname(__file__)+def_filename,sampling_rate=self.SAMPLING_RATE,calibPath=calib_dir)
+		self.calib = RadCalib(self, os.path.dirname(__file__)+def_filename,calibPath=calib_dir)
 		self.jtag = RadJTAG(self)
 			
 		# create the CPLDs. These are really only for JTAG configuration.
