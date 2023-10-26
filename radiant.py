@@ -25,6 +25,8 @@ class RADIANT:
 
 	#hardcode to make it easy
 	SAMPLING_RATE=2400
+	RADIANT_VERSION=2
+
 	## NOTE THIS IS A STATIC FUNCTION
 	def boardmanReset():
 		GPIO.setup("P8_30", GPIO.OUT, pull_up_down=GPIO.PUD_UP, initial=GPIO.HIGH)
@@ -67,7 +69,8 @@ class RADIANT:
 			'BM_SPIOUTMSB' :   0x400028,
 			'BM_I2CGPIO_BASE': 0x400040,
 			'BM_TRIGDAC_BASE': 0x400080,			
-			'BM_PEDESTAL':     0x4000E0			
+			'BM_PEDESTAL':     0x4000E0,		
+			'BM_SAMPLING_RATE' : 0x4000F0	
 			}
 
 	class DateVersion:
@@ -107,11 +110,9 @@ class RADIANT:
 			self.read = self.dev.read
 			self.write = self.dev.write
 			self.writeto = self.dev.writeto
+			# read sampling rate from board manager
+			self.SAMPLING_RATE=self.read(self.map['BM_SAMPLING_RATE'])
 		
-		
-		#hardcode sampling rate for build_lab_defaults.py ... can be read from board manager as of 0.2.16
-		
-
 		# create the calibration interface. Starts off being unloaded.
 		# Will be loaded when a DNA's present.
 		# If we try to use without a DNA, use lab4generic_3G2.p's parameters.
@@ -121,7 +122,6 @@ class RADIANT:
 		else: 
 			def_filename="/lab4generic_3G2.p" #3200
 			calib_dir='./calib_3200'
-
 
 		self.calib = RadCalib(self, os.path.dirname(__file__)+def_filename,sampling_rate=self.SAMPLING_RATE,calibPath=calib_dir)
 		self.jtag = RadJTAG(self)
@@ -144,8 +144,7 @@ class RADIANT:
 			   'invertSync' : True,
 			   'labMontimingMapFn' : lambda lab: int(lab/12),
 			   'montimingSelectFn' : self.monSelect,
-			   'regclrAll' : 0x1 ,
-			   'sampling_rate': self.SAMPLING_RATE}
+			   'regclrAll' : 0x1 }
 			
 		# Dummy calibration for now. Need to redo the calibration core anyway.		
 		self.labc = LAB4_Controller(self, self.map['LAB4_CTRL_BASE'], self.calib, **config)

@@ -78,7 +78,7 @@ class LAB4_Controller:
             self.labMontimingMapFn = kwargs['labMontimingMapFn']
             self.montimingSelectFn = kwargs['montimingSelectFn']
             self.regclrAll = kwargs['regclrAll']
-            self.sampling_rate=kwargs['sampling_rate']
+            self.sampling_rate=self.dev.SAMPLING_RATE
             self.pb = picoblaze.PicoBlaze(self, self.map['pb'])
             self.phasepb = picoblaze.PicoBlaze(self,self.map['PHASEPB'])
 
