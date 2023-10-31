@@ -332,8 +332,8 @@ class LAB4_Controller:
         ''' dump timing parameters '''
         def scan_dump(self, lab):
             self.montimingSelectFn(lab)
-            width_time_conversion=128/2.4/2257/2
-            time_conversion=128/2.4/2257 #this converts the arb values to a time
+            width_time_conversion=128/self.dev.SAMPLING_RATE/2257/2
+            time_conversion=128/self.dev.SAMPLING_RATE/2257 #this converts the arb values to a time
 
             scanNum = self.labMontimingMapFn(lab)            
             for strb in ['A1', 'A2', 'B1', 'B2','WR_STRB','PHAB']:
