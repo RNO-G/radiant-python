@@ -7,7 +7,7 @@ from .serialcobsdevice import SerialCOBSDevice
 from .radcpld import RadCPLD
 from .lab4_controller import LAB4_Controller
 from .lab4_calram import LAB4_Calram
-
+from .raddelays import RadDelays
 from .radcalib import RadCalib
 from .radsig import RadSig
 from .radjtag import RadJTAG
@@ -27,7 +27,14 @@ except:
 	pass
 
 
+RADIANT_SAMPLING_RATE = 2400
+
 class RADIANT:
+
+	#hardcode to make it easy
+	SAMPLING_RATE=2400
+	RADIANT_VERSION=2
+
 	## NOTE THIS IS A STATIC FUNCTION
 	def boardmanReset():
 		GPIO.setup("P8_30", GPIO.OUT, pull_up_down=GPIO.PUD_UP, initial=GPIO.HIGH)
@@ -61,6 +68,7 @@ class RADIANT:
 			'LAB4_CTRL_BASE' :   0x10000,
 			'LAB4_CALRAM_BASE' : 0x80000,
 			'PWM_BASE' : 0x30200,
+			'CHANNEL_DELAYS':0x10080,
 			'BM_ID' :   0x400000,
 			'BM_DATEVERSION' : 0x400004,
 			'BM_STATUS' : 0x400008,
@@ -68,8 +76,10 @@ class RADIANT:
 			'BM_SPIOUTLSB' :   0x400024,
 			'BM_SPIOUTMSB' :   0x400028,
 			'BM_I2CGPIO_BASE': 0x400040,
+			'BM_RADIANT_VERSION': 0x40005C,
 			'BM_TRIGDAC_BASE': 0x400080,			
-			'BM_PEDESTAL':     0x4000E0			
+			'BM_PEDESTAL':     0x4000E0,
+			'BM_SAMPLING_RATE' : 0x4000F0
 			}
 	
 	class BurstType(enum.Enum):
@@ -95,11 +105,19 @@ class RADIANT:
 			self.read = self.dev.read
 			self.write = self.dev.write
 			self.writeto = self.dev.writeto
+			# read sampling rate from board manager
+			self.SAMPLING_RATE=self.read(self.map['BM_SAMPLING_RATE'])
+			self.RADIANT_VERSION=self.read(self.map['BM_RADIANT_VERSION'])
+			self.logger.info(f"This is a rev. {self.RADIANT_VERSION} RADIANT board with {self.SAMPLING_RATE} MHz sampling rate")
 
 		# create the calibration interface. Starts off being unloaded.
 		# Will be loaded when a DNA's present.
 		# If we try to use without a DNA, use lab4generic_3G2.p's parameters.
-		self.calib = RadCalib(self, pathlib.Path(__file__).parent / "data" / "lab4generic_3G2.p", logger=self.logger)
+		if self.SAMPLING_RATE==2400: 
+			def_filename=pathlib.Path(__file__).parent / "data" / "lab4generic_2G4.p"
+		else:  # if SAMPLING RATE is unspecified, default to 3200
+			def_filename=pathlib.Path(__file__).parent / "data" / "lab4generic_3G2.p"
+		self.calib = RadCalib(self, def_filename, logger=self.logger)
 		self.jtag = RadJTAG(self)
 			
 		# create the CPLDs. These are really only for JTAG configuration.
@@ -136,6 +154,9 @@ class RADIANT:
 		
 		# SPI Flash
 		self.spi = SPI(self, self.map['SPIBASE'], initialize=False)
+
+		# Radiant Readout Delays
+		self.raddelays = RadDelays(self)
 
 	# Issues an ICAP reboot to the FPGA.
 	# Image 0 = golden (address = 0x0)

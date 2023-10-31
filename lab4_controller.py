@@ -79,7 +79,7 @@ class LAB4_Controller:
             self.labMontimingMapFn = kwargs['labMontimingMapFn']
             self.montimingSelectFn = kwargs['montimingSelectFn']
             self.regclrAll = kwargs['regclrAll']
-                
+            self.sampling_rate = self.dev.SAMPLING_RATE
             self.pb = PicoBlaze(self, self.map['pb'])
             self.phasepb = PicoBlaze(self,self.map['PHASEPB'])
 
@@ -110,9 +110,15 @@ class LAB4_Controller:
         def readoutempty(self, threshold):
             self.write(self.map['READOUTEMPTY'], threshold)
 
-        def load_defaults(self, fn=pathlib.Path(__file__).parent / "data" / "lab4defaults_3G2.p"):
+        def load_defaults(self, fn=None):
+            if fn == None:
+                if self.sampling_rate == 2400:
+                    fn = pathlib.Path(__file__).parent / "data" / "lab4defaults_2G4.p"
+                else:  # Default to 3200 MHz if no filename is specified
+                    fn = pathlib.Path(__file__).parent / "data" / "lab4defaults_3G2.p"
             if not fn.is_file():
                 raise RuntimeError(f"Cannot open file {fn}")
+            self.logger.info(f"Loading LAB4D defaults from {fn}")
             self.defaults = pickle.load(open(fn, "rb"))
             
         # We do match=1 here because we find the first WR_STRB edge
@@ -200,57 +206,87 @@ class LAB4_Controller:
             return err
 
         def autotune_vadjp(self, lab, initial=2700):
-                self.set_tmon(lab, self.tmon['SSPin'])
-                self.montimingSelectFn(lab)
-                scanNum = self.labMontimingMapFn(lab)
-                
+            self.set_tmon(lab, self.tmon['SSTout'])
+            self.montimingSelectFn(lab)
+            scanNum = self.labMontimingMapFn(lab)
+            vadjp=initial
+            has_sstout=False
+            idelta=5
+            kick_tries=0
+            while not has_sstout:
+                kick_tries=kick_tries+1
+                if kick_tries>5:
+                    self.logger.error('kicking not working...')
+                    return vadjp
+
                 rising=self.scan_edge(scanNum, 1, 0)
                 if rising == 0xFFFF:
-                    self.logger.error("No rising edge on VadjP: looks stuck")
-                    return
+                    self.logger.warning("No rising edge on VadjP: looks stuck")
+                    #vadjp+=idelta
+                    self.dev.calib.lab4_resetSpecifics(lab) 
+                    self.dev.labc.default(lab) 
+                    self.dev.labc.automatch_phab(lab) 
+
+                    #self.l4reg(lab, 8, vadjp)
+                    continue
                 falling=self.scan_edge(scanNum, 0, rising+100)
+
                 if falling == 0xFFFF:
-                    self.logger.error("No falling edge on VadjP: looks stuck")
-                    return
-                
+                    self.logger.warning("No falling edge on VadjP: looks stuck")
+                    vadjp+=idelta
+                    self.l4reg(lab, 8, vadjp)
+                    continue
+
                 width=falling-rising
                 if width < 0:
-                        self.logger.error("Width less than 0, do something.")
-                        return
-                width = int(width*1.05)
-                self.logger.debug("SSPout target: ", width)
-                vadjp=initial
-                delta=20
+                    self.logger.warning("Width less than 0, do something.")
+                    vadjp+=idelta
+                    self.l4reg(lab, 8, vadjp)
+                    continue
+
+                has_sstout=True
+                #self.l4reg(lab, 8, vadjp)
+
+            width = 2257/2
+            self.logger.debug(f"SSTout target: {width}")
+            #vadjp=initial
+            delta=20
+            self.l4reg(lab, 8, vadjp)
+            self.set_tmon(lab, self.tmon['SSPout'])
+            rising=self.scan_edge(scanNum, 1, 0)
+            falling=self.scan_edge(scanNum, 0, rising+100)
+            trial=falling-rising
+            if trial < 0:
+                self.logger.error("Trial width less than 0, do something.")
+                return
+            oldtrial=trial
+            tune_tries=0
+            while abs(trial-width) > 2:
+                if trial < width:
+                    if oldtrial > width:
+                        delta=delta/2
+                        if delta < 1:
+                            delta = 1
+                    vadjp += delta
+                else:
+                    if oldtrial < width:
+                        delta=delta/2
+                        if delta < 1:
+                            delta = 1
+                    vadjp -= delta
+                vadjp = int(vadjp)
+                oldtrial = trial
+                self.calibrations.calib["specifics"][lab][8] = vadjp
                 self.l4reg(lab, 8, vadjp)
-                self.set_tmon(lab, self.tmon['SSPout'])
                 rising=self.scan_edge(scanNum, 1, 0)
                 falling=self.scan_edge(scanNum, 0, rising+100)
                 trial=falling-rising
-                if trial < 0:
-                        self.logger.error("Trial width less than 0, do something.")
-                        return
-                oldtrial=trial
-                while abs(trial-width) > 2:
-                        if trial < width:
-                                if oldtrial > width:
-                                        delta=delta/2
-                                        if delta < 1:
-                                                delta = 1
-                                vadjp += delta
-                        else:
-                                if oldtrial < width:
-                                        delta=delta/2
-                                        if delta < 1:
-                                                delta = 1
-                                vadjp -= delta
-                        vadjp = int(vadjp)
-                        oldtrial = trial
-                        self.l4reg(lab, 8, vadjp)
-                        rising=self.scan_edge(scanNum, 1, 0)
-                        falling=self.scan_edge(scanNum, 0, rising+100)
-                        trial=falling-rising
-                        self.logger.debug("Trial: vadjp %d width %f target %f" % ( vadjp, trial, width))
-                return vadjp
+                self.logger.debug(f"Trial: vadjp {vadjp} width {trial} target {width}")
+                tune_tries=tune_tries+1
+                if tune_tries>20:
+                    self.logger.error('autotune vadjp stuck... returning initial value')
+                    return initial
+            return vadjp
                 
         def autotune_vadjn(self, lab):
             self.set_tmon(lab, self.tmon['A1'])
@@ -292,8 +328,11 @@ class LAB4_Controller:
         ''' dump timing parameters '''
         def scan_dump(self, lab):
             self.montimingSelectFn(lab)
+            width_time_conversion=128/(self.dev.SAMPLING_RATE*1e-3)/2257/2
+            time_conversion=128/(self.dev.SAMPLING_RATE*1e-3)/2257 #this converts the arb values to a time
+
             scanNum = self.labMontimingMapFn(lab)            
-            for strb in ['A1', 'A2', 'B1', 'B2']:
+            for strb in ['A1', 'A2', 'B1', 'B2', 'WR_STRB','PHAB']:
                 self.set_tmon(lab, self.tmon[strb])
                 param = self.scan_pulse_param(scanNum, 0)
                 # this should be 4480 - the total length of the phase scanner
@@ -301,8 +340,8 @@ class LAB4_Controller:
                 if param[0] == 0 or param[0] > 4470.0:
                     self.logger.warning(f"{strb}: not present")
                 else:
-                    self.logger.debug(f"{strb}: width ", param[0], "from", param[1], "-",param[2])
-            for strb in ['SSPin', 'SSPout']:
+                    self.logger.debug(f"{strb}: width {param[0]*width_time_conversion:.3f} from {param[1]*time_conversion:.3f} - {param[2]*time_conversion:.3f}")
+            for strb in ['SSPin', 'SSPout', 'SSTout','PHASE']:
                 self.set_tmon(lab, self.tmon[strb])
                 # get the first pulse
                 p1 = self.scan_pulse_param(scanNum, 0)
@@ -311,7 +350,7 @@ class LAB4_Controller:
                     continue
                 # get the second pulse, after the end of the first
                 p2 = self.scan_pulse_param(scanNum, p1[2])
-                self.logger.debug(strb, ": width ", p1[0], "from", p1[1],"-",p1[2], "and", p2[1], "-", p2[2])
+                self.logger.debug(f"{strb}: width {p1[0]*width_time_conversion:.3f} from {p1[1]*time_conversion:.3f} - {p1[2]*time_conversion:.3f} and {p2[1]*time_conversion:.3f} - {p2[2]*time_conversion:.3f}")
                 
         def scan_pulse_param(self, scan, start):
             param = []
@@ -560,8 +599,7 @@ class LAB4_Controller:
             user[23:12] = addr
             user[28:24] = lab
             user[31] = 1
-            if verbose:
-                self.logger.debug("Going to write 0x%X" % int(user)) 
+            self.logger.debug("Going to write 0x%X" % int(user)) 
             self.write(self.map['L4REG'], int(user))
             while not user[31]:
                 user = bf(self.read(self.map['L4REG']))
@@ -576,10 +614,10 @@ class LAB4_Controller:
            return int(user)
 
         ''' update the *specifics* for a given lab4 '''
-        def update(self, lab4):
+        def update(self, lab4, verbose=False):
             spec = self.calibrations.lab4_specifics(lab4)
             for item in spec.items():
-                self.l4reg(lab4, item[0], item[1])
+                self.l4reg(lab4, item[0], item[1], verbose=verbose)
                 
         ''' fully initialize a LAB4 '''
         def default(self, lab4=None, initial=True):

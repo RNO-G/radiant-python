@@ -89,12 +89,12 @@ class RadCalib:
         self.logger.info("Updating pedestals...")
         self.dev.labc.stop()
         self.dev.calram.zero()
-        self.dev.calram.mode(self.dev.calram.CalMode.PEDESTAL)        
+        self.dev.calram.mode(self.dev.calram.CalMode.PEDESTAL)
         self.dev.labc.start()
         # Build up 512-sample sum of pedestals. The 512 here is magic,
         # it's the amount needed for the zerocrossing
         for i in range(4*self.trigsPerRoll):
-            self.dev.labc.force_trigger(block=True, numTrig=128, safe=False)
+            self.dev.labc.force_trigger(block=True, numTrig=128, safe=True)
         self.dev.labc.stop()
         # peds are updated, dump them
         self.logger.info("Fetching pedestals...")

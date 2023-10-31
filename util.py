@@ -50,7 +50,7 @@ def reset(radiant):
 
 
 def setup_radiant(radiant):
-	cpld_fw = pathlib.Path(__file__).parent / 'data' / 'radiant_aux_v2.bit'
+	cpld_fw = pathlib.Path(__file__).parent / 'data' / 'radiant_aux_v3.bit'
 	radiant.cpl.configure(cpld_fw)
 	radiant.cpr.configure(cpld_fw)
 
