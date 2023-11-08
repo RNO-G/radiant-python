@@ -47,13 +47,12 @@ def reset(radiant):
 		radiant.write(radiant.map['BM_I2CGPIO_BASE']+4*i, 0xF0)
 
 	time.sleep(1)
-
-
-def setup_radiant(radiant):
-	cpld_fw = pathlib.Path(__file__).parent / 'data' / 'radiant_aux_v3.bit'
-	radiant.cpl.configure(cpld_fw)
-	radiant.cpr.configure(cpld_fw)
-
+ 
+ 
+ 
+def _analog_setup(radiant):
+    # From radiant-python/example/analog_setup.py
+    
 	# enable LAB4 + trigger and set LED red
 	for i in range(6):
 		radiant.write(radiant.map['BM_I2CGPIO_BASE']+4*i, 0xF0)
@@ -70,6 +69,14 @@ def setup_radiant(radiant):
 		radiant.atten(ch, 0, trigger=False)
 		# trigger attenuator
 		radiant.atten(ch, 0, trigger=True)
+
+
+def setup_radiant(radiant):
+	cpld_fw = pathlib.Path(__file__).parent / 'data' / 'radiant_aux_v3.bit'
+	radiant.cpl.configure(cpld_fw)
+	radiant.cpr.configure(cpld_fw)
+
+	_analog_setup(radiant)
 
 	radiant.labc.stop()
 	radiant.dma.reset()
