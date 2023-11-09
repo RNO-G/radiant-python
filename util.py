@@ -71,8 +71,8 @@ def _analog_setup(radiant):
 		radiant.atten(ch, 0, trigger=True)
 
 
-def setup_radiant(radiant):
-	cpld_fw = pathlib.Path(__file__).parent / 'data' / 'radiant_aux_v3.bit'
+def setup_radiant(radiant, version="3"):
+	cpld_fw = pathlib.Path(__file__).parent / 'data' / f'radiant_aux_v{version}.bit'
 	radiant.cpl.configure(cpld_fw)
 	radiant.cpr.configure(cpld_fw)
 
