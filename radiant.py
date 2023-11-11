@@ -27,13 +27,7 @@ except:
 	pass
 
 
-RADIANT_SAMPLING_RATE = 2400
-
 class RADIANT:
-
-	#hardcode to make it easy
-	SAMPLING_RATE=2400
-	RADIANT_VERSION=2
 
 	## NOTE THIS IS A STATIC FUNCTION
 	def boardmanReset():

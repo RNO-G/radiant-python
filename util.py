@@ -71,26 +71,34 @@ def _analog_setup(radiant):
 		radiant.atten(ch, 0, trigger=True)
 
 
-def setup_radiant(radiant, version="3"):
+def _create_RADIANT_object(station):
+	from .radiant import RADIANT
+
+	station.radiant_board = RADIANT(port=station.station_conf["daq"]["radiant_board_dev"])
+
+
+def setup_radiant(station, version=3):
+	_create_RADIANT_object(station)
+
 	cpld_fw = pathlib.Path(__file__).parent / 'data' / f'radiant_aux_v{version}.bit'
-	radiant.cpl.configure(cpld_fw)
-	radiant.cpr.configure(cpld_fw)
+	station.radiant_board.cpl.configure(cpld_fw)
+	station.radiant_board.cpr.configure(cpld_fw)
 
-	_analog_setup(radiant)
+	_analog_setup(station.radiant_board)
 
-	radiant.labc.stop()
-	radiant.dma.reset()
-	radiant.labc.reg_clr()
+	station.radiant_board.labc.stop()
+	station.radiant_board.dma.reset()
+	station.radiant_board.labc.reg_clr()
 
-	radiant.labc.default(radiant.labc.labAll)
-	radiant.labc.automatch_phab(radiant.labc.labAll)
+	station.radiant_board.labc.default(station.radiant_board.labc.labAll)
+	station.radiant_board.labc.automatch_phab(station.radiant_board.labc.labAll)
 
-	radiant.calib.resetCalib()
-	dna = radiant.dna()
-	radiant.calib.load(dna)
+	station.radiant_board.calib.resetCalib()
+	dna = station.radiant_board.dna()
+	station.radiant_board.calib.load(dna)
 
-	radiant.labc.testpattern_mode(False)
+	station.radiant_board.labc.testpattern_mode(False)
 
-	radiant.calram.zero()
-	radiant.calram.mode(radiant.calram.CalMode.NONE)
-	radiant.calib.updatePedestals()
+	station.radiant_board.calram.zero()
+	station.radiant_board.calram.mode(station.radiant_board.calram.CalMode.NONE)
+	station.radiant_board.calib.updatePedestals()
