@@ -39,6 +39,7 @@ class RadCalib:
         self.resetCalib()
 
     def resetCalib(self):
+        self.logger.info("Reset calibration ...")
         self.calib = {}
         self.calib['pedestals'] = None
         specs = []
@@ -50,18 +51,25 @@ class RadCalib:
     def save(self, uid):
         namestr = path.join(self.calibPath, f"cal_{uid:032x}.json")
         self.logger.info(f"Save calibration: {namestr}")
+        
+        calib = dict()
+        for ch in range(self.numLabs):
+            calib[ch] = self.lab4_specifics(ch)
 
         with open(namestr, "w") as f:
-            json.dump(self.calib, f)
+            json.dump(calib, f)
     
     # Load our calibration.
     def load(self, uid):
         namestr = path.join(self.calibPath, f"cal_{uid:032x}.json")
         self.logger.info(f"Load calibration: {namestr}")
         if path.isfile(namestr):
-            self.calib = {}
             with open(namestr, "r") as f:
-                self.calib = json.load(f)
+                calib = json.load(f)
+                
+            for ch in calib.keys():
+                for key in calib[ch].keys():
+                    self.lab4_specifics_set(int(ch), int(key), calib[ch][key])
 
         else:
             self.logger.warning(f"File {namestr} not found: using defaults")
