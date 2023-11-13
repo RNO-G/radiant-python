@@ -51,8 +51,8 @@ dev.labc.default(dev.labc.labAll)
 dev.labc.automatch_phab(dev.labc.labAll)
 
 dev.calib.resetCalib()
-dna = dev.dna()
-dev.calib.load(dna)
+uid = dev.uid()
+dev.calib.load(uid)
 
 # Using default isels for now
 

@@ -22,7 +22,7 @@ class TuneResult(Enum):
 
 dev = RADIANT("/dev/ttyO5")
 dev.identify()
-dna = dev.dna()
+uid = dev.uid()
 dev.labc.stop()
 dev.labc.reg_clr()
 dev.labc.testpattern_mode(False)
@@ -44,4 +44,4 @@ for i in range(24):
 for i in range(24):
     print("LAB",i,"tune: ", ok[i].name)
 
-dev.calib.save(dna)
+dev.calib.save(uid)

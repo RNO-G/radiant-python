@@ -356,6 +356,13 @@ class RADIANT:
 			val = r[i] & 0x1
 			dnaval = (dnaval << 1) | val
 		return dnaval
+
+	def uid(self):
+		res = self.readReg(self.map["BM_ID"] + 0x30)
+		res += self.readReg(self.map["BM_ID"] + 0x34) << 32
+		res += self.readReg(self.map["BM_ID"] + 0x38) << 64
+		res += self.readReg(self.map["BM_ID"] + 0x3C) << 96
+		return res
 	
 	# note: you do NOT have to do the enable thing
 	# every time. I just have it here to allow None

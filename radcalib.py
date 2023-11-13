@@ -18,8 +18,7 @@ import numpy as np
 import pickle
 from os import path
 import os 
-import random
-import time
+import json
 
 class RadCalib:
     # do something at init
@@ -48,27 +47,22 @@ class RadCalib:
         self.calib['specifics'] = specs
         
     # Save our calibration.
-    def save(self, dna):
-        namestr = path.join(self.calibPath, "cal_"+format(dna,'x')+".npy")
-        np.save(namestr, self.calib)
+    def save(self, uid):
+        namestr = path.join(self.calibPath, f"cal_{uid:032x}.json")
+        self.logger.info(f"Save calibration: {namestr}")
+
+        with open(namestr, "w") as f:
+            json.dump(self.calib, f)
     
     # Load our calibration.
-    def load(self, dna):
-        namestr = path.join(self.calibPath, "cal_"+format(dna,'x')+".npy")
+    def load(self, uid):
+        namestr = path.join(self.calibPath, f"cal_{uid:032x}.json")
+        self.logger.info(f"Load calibration: {namestr}")
         if path.isfile(namestr):
             self.calib = {}
-            tmp = np.load(namestr)
-            # This is probably insane: I should change
-            # this to use JSON, but the problem is that
-            # it'll convert the integer keys to strings,
-            # and then it's not quite as simple to load them.
-            # Need to see if there's a simple way to work
-            # around that...
-            #
-            # yeah, we should do that: we'll save them
-            # as JSON that way both C and Python stuff
-            # can use them. To Be Done!
-            self.calib = tmp[()]
+            with open(namestr, "r") as f:
+                self.calib = json.load(f)
+
         else:
             self.logger.warning(f"File {namestr} not found: using defaults")
             self.resetCalib()
@@ -107,7 +101,7 @@ class RadCalib:
 
         self.dev.dma.beginDMA()
         rawped = np.frombuffer(bytearray(self.dev.dma.dmaread(4096*4*self.numLabs)),dtype=np.uint32)
-        rawped = rawped/512
+        rawped = rawped / 512
         self.calib['pedestals'] = rawped.reshape(24, 4096)
         self.logger.info("Update complete")
 

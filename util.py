@@ -94,8 +94,8 @@ def setup_radiant(station, version=3):
 	station.radiant_board.labc.automatch_phab(station.radiant_board.labc.labAll)
 
 	station.radiant_board.calib.resetCalib()
-	dna = station.radiant_board.dna()
-	station.radiant_board.calib.load(dna)
+	uid = station.radiant_board.uid()
+	station.radiant_board.calib.load(uid)
 
 	station.radiant_board.labc.testpattern_mode(False)
 

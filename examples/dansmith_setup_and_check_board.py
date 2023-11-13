@@ -29,8 +29,8 @@ dev.labc.default(dev.labc.labAll)
 dev.labc.automatch_phab(dev.labc.labAll)
 
 dev.calib.resetCalib()
-dna = dev.dna()
-dev.calib.load(dna)
+uid = dev.uid()
+dev.calib.load(uid)
 
 for lab in range(24):
     base_addr = 256

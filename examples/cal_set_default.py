@@ -8,12 +8,12 @@ if len(sys.argv) > 1:
     mask = int(sys.argv[1])
 
 dev = RADIANT("/dev/ttyRadiant")
-dna = dev.dna()
-dev.calib.load(dna)
+uid = dev.uid()
+dev.calib.load(uid)
 
 for i in range(24): 
     if mask & (1 << i): 
         dev.calib.lab4_resetSpecifics(i) 
 
 
-dev.calib.save(dna)
+dev.calib.save(uid)
