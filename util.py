@@ -48,8 +48,7 @@ def reset(radiant):
 
 	time.sleep(1)
  
- 
- 
+
 def _analog_setup(radiant):
     # From radiant-python/example/analog_setup.py
     
@@ -71,15 +70,7 @@ def _analog_setup(radiant):
 		radiant.atten(ch, 0, trigger=True)
 
 
-def _create_RADIANT_object(station):
-	from .radiant import RADIANT
-
-	station.radiant_board = RADIANT(port=station.station_conf["daq"]["radiant_board_dev"])
-
-
 def setup_radiant(station, version=3):
-	_create_RADIANT_object(station)
-
 	cpld_fw = pathlib.Path(__file__).parent / 'data' / f'radiant_aux_v{version}.bit'
 	station.radiant_board.cpl.configure(cpld_fw)
 	station.radiant_board.cpr.configure(cpld_fw)
