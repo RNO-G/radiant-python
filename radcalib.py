@@ -28,25 +28,29 @@ class RadCalib:
         self.dev = dev
         self.trigsPerRoll = 4
         self.channelMask = 0
-        self.numLabs=numLabs
-        self.calibPath = calibPath
+        self.numLabs = numLabs
         self.logger = logger
+
+        self.calibPath = calibPath
         os.makedirs(calibPath, exist_ok=True) 
+        
         # Build up a generic RADIANT: 24x generic parameters, all independent
-        generic = pickle.load(open(genericFn, "rb"))
-        self.generic = generic.copy()
+        with open(genericFn, "rb") as f:
+            self.generic = pickle.load(f)
+        
         # reset the calib
-        self.resetCalib()
+        # self.resetCalib()
+        
+        # load calibration, if not exists reset calibration
+        self.load(self.dev.uid())
 
     def resetCalib(self):
         self.logger.info("Reset calibration ...")
         self.calib = {}
         self.calib['pedestals'] = None
-        specs = []
-        for i in range(self.numLabs):
-            specs.append(self.generic.copy())
-        self.calib['specifics'] = specs
-        
+        for ch in range(self.numLabs):
+            self.lab4_resetSpecifics(ch)
+
     # Save our calibration.
     def save(self, uid):
         namestr = path.join(self.calibPath, f"cal_{uid:032x}.json")
