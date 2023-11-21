@@ -48,6 +48,7 @@ class RadCalib:
         self.logger.info("Reset calibration ...")
         self.calib = {}
         self.calib['pedestals'] = None
+        self.calib['specifics'] = [None] * self.numLabs
         for ch in range(self.numLabs):
             self.lab4_resetSpecifics(ch)
 
