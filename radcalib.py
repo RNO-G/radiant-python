@@ -68,6 +68,12 @@ class RadCalib:
     def load(self, uid):
         namestr = path.join(self.calibPath, f"cal_{uid:032x}.json")
         self.logger.info(f"Load calibration: {namestr}")
+        
+        # removing what was in the there
+        self.calib = {}
+        self.calib['pedestals'] = None
+        self.calib['specifics'] = [None] * self.numLabs
+        
         if path.isfile(namestr):
             with open(namestr, "r") as f:
                 calib = json.load(f)
