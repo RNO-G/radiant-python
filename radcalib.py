@@ -17,7 +17,7 @@ import logging
 import numpy as np
 import pickle
 from os import path
-import os 
+import os
 import json
 
 class RadCalib:
@@ -32,15 +32,15 @@ class RadCalib:
         self.logger = logger
 
         self.calibPath = calibPath
-        os.makedirs(calibPath, exist_ok=True) 
-        
+        os.makedirs(calibPath, exist_ok=True)
+
         # Build up a generic RADIANT: 24x generic parameters, all independent
         with open(genericFn, "rb") as f:
             self.generic = pickle.load(f)
-        
+
         # reset the calib
         # self.resetCalib()
-        
+
         # load calibration, if not exists reset calibration
         self.load(self.dev.uid())
 
@@ -56,28 +56,28 @@ class RadCalib:
     def save(self, uid):
         namestr = path.join(self.calibPath, f"cal_{uid:032x}.json")
         self.logger.info(f"Save calibration: {namestr}")
-        
+
         calib = dict()
         for ch in range(self.numLabs):
             calib[ch] = self.lab4_specifics(ch)
 
         with open(namestr, "w") as f:
             json.dump(calib, f)
-    
+
     # Load our calibration.
     def load(self, uid):
         namestr = path.join(self.calibPath, f"cal_{uid:032x}.json")
         self.logger.info(f"Load calibration: {namestr}")
-        
+
         # removing what was in the there
         self.calib = {}
         self.calib['pedestals'] = None
         self.calib['specifics'] = [{}] * self.numLabs
-        
+
         if path.isfile(namestr):
             with open(namestr, "r") as f:
                 calib = json.load(f)
-                
+
             for ch in calib.keys():
                 for key in calib[ch].keys():
                     self.lab4_specifics_set(int(ch), int(key), calib[ch][key])
@@ -85,7 +85,10 @@ class RadCalib:
         else:
             self.logger.warning(f"File {namestr} not found: using defaults")
             self.resetCalib()
-    
+
+        for lab in self.numLabs:
+            self.dev.labc.update(lab)
+
     # Gets the LAB4-specific parameters for each LAB.
     def lab4_specifics(self, lab):
         return self.calib['specifics'][lab]
@@ -95,7 +98,7 @@ class RadCalib:
 
     def lab4_resetSpecifics(self, lab):
         self.calib['specifics'][lab] = self.generic.copy()
-    
+
     # Updates pedestals, both locally
     # *and* in the CALRAM.
     def updatePedestals(self):
