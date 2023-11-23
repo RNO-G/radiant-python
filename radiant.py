@@ -35,7 +35,7 @@ class RADIANT:
 		GPIO.output("P8_30", GPIO.LOW)
 		GPIO.output("P8_30", GPIO.HIGH)
 		GPIO.setup("P8_30", GPIO.IN, pull_up_down=GPIO.PUD_UP)
-	
+
 	def boardmanBootloader():
 		GPIO.setup("P8_30", GPIO.OUT, pull_up_down=GPIO.PUD_UP, initial=GPIO.HIGH)
 		GPIO.output("P8_30", GPIO.LOW)
@@ -43,10 +43,10 @@ class RADIANT:
 		time.sleep(0.05)
 		GPIO.output("P8_30", GPIO.LOW)
 		GPIO.output("P8_30", GPIO.HIGH)
-		GPIO.setup("P8_30", GPIO.IN, pull_up_down=GPIO.PUD_UP)		
-	
+		GPIO.setup("P8_30", GPIO.IN, pull_up_down=GPIO.PUD_UP)
+
 	##### GLOBAL CRAP
-	
+
 	map = { 'FPGA_ID' : 0x0,
 			'FPGA_DATEVERSION' : 0x4,
 			'CPLD_CONTROL' : 0x8,
@@ -71,27 +71,27 @@ class RADIANT:
 			'BM_SPIOUTMSB' :   0x400028,
 			'BM_I2CGPIO_BASE': 0x400040,
 			'BM_RADIANT_VERSION': 0x40005C,
-			'BM_TRIGDAC_BASE': 0x400080,			
+			'BM_TRIGDAC_BASE': 0x400080,
 			'BM_PEDESTAL':     0x4000E0,
 			'BM_SAMPLING_RATE' : 0x4000F0
 			}
-	
+
 	class BurstType(enum.Enum):
 		BYTE = 0x000
 		WORD = 0x100
 		DWORD = 0x200
-                
+
 	class DeviceType(enum.Enum):
-		SERIAL = 'Serial'		
-	
+		SERIAL = 'Serial'
+
 	#### ACTUAL INITIALIZATION
 	# dumb map function
 	def radiantLabMontimingMap(lab):
 		return int(lab/12)
-		
+
 	def __init__(self, port, type=DeviceType.SERIAL):
 		self.logger = logging.getLogger('RADIANT')
-		
+
 		if type == self.DeviceType.SERIAL:
 			self.dev = SerialCOBSDevice(port, 1000000)
 			# pull in the interface functions
@@ -108,13 +108,15 @@ class RADIANT:
 		# create the calibration interface. Starts off being unloaded.
 		# Will be loaded when a DNA's present.
 		# If we try to use without a DNA, use lab4generic_3G2.p's parameters.
-		if self.SAMPLING_RATE==2400: 
+		if self.SAMPLING_RATE==2400:
 			def_filename=pathlib.Path(__file__).parent / "data" / "lab4generic_2G4.p"
 		else:  # if SAMPLING RATE is unspecified, default to 3200
 			def_filename=pathlib.Path(__file__).parent / "data" / "lab4generic_3G2.p"
-		self.calib = RadCalib(self, def_filename, logger=self.logger)
+
+		self.labc = None  # necessary to already define labc (as None) for init of RadCalib
+ 		self.calib = RadCalib(self, def_filename, logger=self.logger)
 		self.jtag = RadJTAG(self)
-			
+
 		# create the CPLDs. These are really only for JTAG configuration.
 		self.cpl = RadCPLD(self, self.map['LJTAG'], self.cpldJtag, self.logger)
 		self.cpr = RadCPLD(self, self.map['RJTAG'], self.cpldJtag, self.logger)
@@ -134,19 +136,21 @@ class RADIANT:
 			   'labMontimingMapFn' : lambda lab: int(lab/12),
 			   'montimingSelectFn' : self.monSelect,
 			   'regclrAll' : 0x1 }
-			
-		# Dummy calibration for now. Need to redo the calibration core anyway.		
+
+		# Dummy calibration for now. Need to redo the calibration core anyway.
 		self.labc = LAB4_Controller(self, self.map['LAB4_CTRL_BASE'], self.calib, self.logger, **config)
-		
+		for lab in range(24):
+			self.dev.labc.update(lab)
+
 		# Calram
 		self.calram = LAB4_Calram(self, self.map['LAB4_CALRAM_BASE'], self.labc, numLabs=24, labAllMagic=31)
-		
+
 		# RadSig
 		self.radsig = RadSig(self, self.logger)
-		
+
 		# DMA
 		self.dma = RadDMA(self, self.map['DMABASE'], BBSPI())
-		
+
 		# SPI Flash
 		self.spi = SPI(self, self.map['SPIBASE'], initialize=False)
 
@@ -164,12 +168,12 @@ class RADIANT:
 			addr = (0x0f00000 >> 8)
 		elif image == 2:
 			addr = (0x1e00000 >> 8)
-			
+
 		tx = bytearray(4)
 		tx[0] = addr & 0xFF
 		tx[1] = (addr >> 8) & 0xFF
 		tx[2] = (addr >> 16) & 0xFF
-		tx[3] = (addr >> 24) & 0xFF		
+		tx[3] = (addr >> 24) & 0xFF
 		self.write(self.map['FPGA_ID'], key)
 		self.writeto(self.map['FPGA_DATEVERSION'], tx)
 
@@ -179,7 +183,7 @@ class RADIANT:
 			self.dev.write(self.map['SPISS'], 1)
 		else:
 			self.dev.write(self.map['SPISS'], 0)
-		
+
         # these almost should be considered internal: to burst write/read use the burstread/burstwrite functions
 	def multiread(self, addr, num):
 		if addr & 0x400000:
@@ -202,7 +206,7 @@ class RADIANT:
 		val = self.read(self.map['RESET'])
 		val = 0xFFFFFCFF | type.value
 		self.write(self.map['RESET'], val)
-	
+
 	def burstRead(self, addr, len, burstType=BurstType.BYTE, inBurst=False, endBurst=True):
 		if not inBurst:
 			self.write(self.map['BM_CONTROL'], 8)
@@ -219,9 +223,9 @@ class RADIANT:
 			# 4 words at a time
 			pass
 		if endBurst:
-			self.write(self.map['BM_CONTROL'], 0)	
+			self.write(self.map['BM_CONTROL'], 0)
 		return resp
-	
+
 	def burstWrite(self, addr, data, burstType=BurstType.BYTE, inBurst=False, endBurst=True):
 		# Note, add stupid length check here
 		if not inBurst:
@@ -246,7 +250,7 @@ class RADIANT:
 			resp = self.multiwrite(addr, tx)
 		if endBurst:
 			self.write(self.map['BM_CONTROL'], 0)
-	
+
 	def readReg(self, addr):
 		if isinstance(addr, str):
 			return self.read(self.map[addr])
@@ -257,14 +261,14 @@ class RADIANT:
 	# yes, I need a better way of doing this
 	#def read(self, addr):
 	#	return self.dev.read(addr)
-	
+
 	#def write(self, addr, val):
-	#	return self.dev.write(addr, val)		
+	#	return self.dev.write(addr, val)
 
 	def cpldJtag(self, enable):
 		# enable is bit 31 of reset reg
 		val = self.read(self.map['RESET'])
-		val = val & 0x7FFFFFFF		
+		val = val & 0x7FFFFFFF
 		if enable == True:
 			val |= 0x80000000
 		self.write(self.map['RESET'], val)
@@ -286,7 +290,7 @@ class RADIANT:
 				# set bits 3 and 1 (turns on green LED)
 				cur |= 0x09
 				self.write(self.map['BM_I2CGPIO_BASE']+4*(quad+3*i), cur)
-		
+
 	# if trigger=True, we set the trigger atten, not signal atten
 	def atten(self, channel, value, trigger=False):
 		self.logger.debug(f'Setting attenuator ch. {channel} to {value} (trigger={trigger})')
@@ -297,7 +301,7 @@ class RADIANT:
 		cur = self.read(addr)
 		cur &= 0xFD
 		self.write(addr, cur)
-		
+
 		# figure out the channel
 		# attens go ch0 sig = 0, ch0 trig = 1,
 		# ch1 sig = 2, ch1 trig = 3, etc.
@@ -315,7 +319,7 @@ class RADIANT:
 		self.write(addr, new)
 		# lower LE
 		self.write(addr, cur)
-		
+
 	def monSelect(self, lab):
 		# just do both to the same value, whatever
 		val = lab % 12
@@ -323,19 +327,19 @@ class RADIANT:
 		# then write val to [23:16] and [7:0]
 		toWrite = (0x1000100) | (val << 16) | (val)
 		self.write(self.map['CPLD_CONTROL'], toWrite)
-		
+
 	def pedestal(self, val):
 		self.logger.debug(f'Setting pedestal to {val}')
 		# just set both to same value
 		self.write(self.map['BM_PEDESTAL'], val)
 		self.write(self.map['BM_PEDESTAL']+4, val)
-		
+
 	def identify(self):
 		bid = register_to_string(self.readReg('BM_ID'))
 		bver = DateVersion(self.readReg('BM_DATEVERSION'))
 
 		status = self.readReg('BM_STATUS')
-	
+
 		fid = register_to_string(self.readReg('FPGA_ID'))
 		if fid == "RDNT":
 			fver = DateVersion(self.readReg('FPGA_DATEVERSION'))
@@ -347,12 +351,12 @@ class RADIANT:
 					 'fpga_version': fver.toDict(),
 					 'dna': dna }
 		return None
-	
+
 	def dna(self):
 		self.write(self.map['DNA'], 0x80000000)
 		dnaval=0
 		# now burst read from the DNA address 57 times
-		r = self.burstRead(self.map['DNA'], 57)		
+		r = self.burstRead(self.map['DNA'], 57)
 		for i in range(57):
 			val = r[i] & 0x1
 			dnaval = (dnaval << 1) | val
@@ -364,7 +368,7 @@ class RADIANT:
 		res += self.readReg(self.map["BM_ID"] + 0x38) << 64
 		res += self.readReg(self.map["BM_ID"] + 0x3C) << 96
 		return res
-	
+
 	# note: you do NOT have to do the enable thing
 	# every time. I just have it here to allow None
 	# to allow you to disable it. I guess. Like we care.
@@ -391,7 +395,3 @@ class RADIANT:
 			if oeb[channel]:
 				oeb[channel] = 0
 				self.write(self.map['PWM_BASE']+0x4, int(oeb))
-				
-
-
-
