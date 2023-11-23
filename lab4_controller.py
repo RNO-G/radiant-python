@@ -6,25 +6,25 @@ import time
 
 # Parameterized LAB4 controller (hopefully...)
 class LAB4_Controller:
- 
+
         map = { 'CONTROL'			: 0x00000,
-                'SHIFTPRESCALE'		        : 0x00004,
-		'RDOUTPRESCALE'		        : 0x00008,
-		'WILKDELAY'			: 0x0000C,
-		'WILKMAX'			: 0x00010,
-		'TPCTRL'			: 0x00014,
-		'L4REG'				: 0x00018,
-                'PHASECMD'                      : 0x00020,
-                'PHASEARG'                      : 0x00024,
-                'PHASERES'                      : 0x00028,
-                'PHASEZERO'                     : 0x0002C,
-                'PHASEPB'                       : 0x0003C,
-		'TRIGGER'			: 0x00054,
-                'READOUT'                       : 0x00058,
-                'READOUTEMPTY'                  : 0x0005C,
+                'SHIFTPRESCALE'		: 0x00004,
+                'RDOUTPRESCALE'		: 0x00008,
+                'WILKDELAY'			: 0x0000C,
+                'WILKMAX'			: 0x00010,
+                'TPCTRL'			: 0x00014,
+                'L4REG'				: 0x00018,
+                'PHASECMD'          : 0x00020,
+                'PHASEARG'          : 0x00024,
+                'PHASERES'          : 0x00028,
+                'PHASEZERO'         : 0x0002C,
+                'PHASEPB'           : 0x0003C,
+		        'TRIGGER'			: 0x00054,
+                'READOUT'           : 0x00058,
+                'READOUTEMPTY'      : 0x0005C,
                 'pb'				: 0x0007C,
-                }
-                
+        }
+
         # default (SURF) config. Override these as needed.
         # montimingSelectFn doesn't actually need to return anything, it's done here so I don't need to check if it's not None
         defconfig = { 'numLabs'    : 12,           # number of LAB4s
@@ -34,8 +34,8 @@ class LAB4_Controller:
                       'labMontimingMapFn' : lambda lab: lab,  # function to use for converting LAB# to MONTIMING#
                       'montimingSelectFn' : lambda lab: lab,  # function to call for selecting MONTIMING for LAB
                       'regclrAll'         : 0xFFF  # value to write to REGCLR to clear all LABs
-                      }
-                      
+        }
+
         amon = { 'Vbs'                      : 0,
                  'Vbias'                    : 1,
                  'Vbias2'                   : 2,
@@ -45,7 +45,8 @@ class LAB4_Controller:
                  'ISEL'                     : 6,
                  'VtrimT'                   : 7,
                  'VadjN'                    : 8,
-                 }
+        }
+
         tmon = {'A1'                        : 0,
                 'B1'                        : 1,
                 'A2'                        : 2,
@@ -56,12 +57,12 @@ class LAB4_Controller:
                 'PHAB'                      : 5,
                 'SSPin'                     : 6,
                 'WR_STRB'                   : 7,
-                }
+        }
 
         # the kwargs list was long: see above for the list of all config options.
         def __init__(self, dev, base, calibrations, logger, **kwargs):
             self.defaults = None
-            
+
             #numLabs=12, labAll=15, syncOffset=0, labMontimingMapFn=None, regclrAll=0xFFF):
             self.dev = dev
             self.base = base
@@ -89,15 +90,15 @@ class LAB4_Controller:
         @property
         def shiftprescale(self):
             return self.read(self.map['SHIFTPRESCALE'])
-        
+
         @shiftprescale.setter
         def shiftprescale(self, scale):
             self.write(self.map['SHIFTPRESCALE'], scale)
-        
+
         @property
         def rdoutprescale(self):
             return self.read(self.map['RDOUTPRESCALE'])
-        
+
         @rdoutprescale.setter
         def rdoutprescale(self, scale):
             self.write(self.map['RDOUTPRESCALE'], scale)
@@ -105,7 +106,7 @@ class LAB4_Controller:
         @property
         def readoutempty(self):
             return self.read(self.map['READOUTEMPTY'])
-        
+
         @readoutempty.setter
         def readoutempty(self, threshold):
             self.write(self.map['READOUTEMPTY'], threshold)
@@ -120,7 +121,7 @@ class LAB4_Controller:
                 raise RuntimeError(f"Cannot open file {fn}")
             self.logger.info(f"Loading LAB4D defaults from {fn}")
             self.defaults = pickle.load(open(fn, "rb"))
-            
+
         # We do match=1 here because we find the first WR_STRB edge
         # after SYNC's rising edge, which means it's latching the WR
         # when SYNC=1. syncOffset allows for compensating a
@@ -140,7 +141,7 @@ class LAB4_Controller:
                 # this will never happen
                 self.logger.warning("No sync edge found??")
                 return False
-            
+
             self.logger.debug("Found sync edge: %d" % sync_edge)
             err = False
             for i in labs:
@@ -162,7 +163,7 @@ class LAB4_Controller:
                 # buffer and let it run the delay line
                 # which should force the DLL to a known
                 # spot too.
-                
+
                 self.set_tmon(lab, self.tmon['SSTout'])
                 width = self.scan_width(scanNum)
                 if width < 200 or width > 4000:
@@ -177,8 +178,8 @@ class LAB4_Controller:
                         err = True
                         continue
                     self.l4reg(lab, 8, 2700)
-                
-                
+
+
                 # Find our PHAB sampling point.
                 self.set_tmon(lab, self.tmon['WR_STRB'])
                 wr_edge = self.scan_edge(scanNum, 1, sync_edge)
@@ -196,7 +197,7 @@ class LAB4_Controller:
                 phab = self.scan_value(scanNum, wr_edge) & 0x01
                 if self.invertSync:
                     phab = phab ^ 0x01
-                    
+
                 while phab != match:
                     self.logger.warning(f"LAB{i} wrong PHAB phase, resetting.")
                     self.clr_phase(i)
@@ -223,9 +224,9 @@ class LAB4_Controller:
                 if rising == 0xFFFF:
                     self.logger.warning("No rising edge on VadjP: looks stuck")
                     #vadjp+=idelta
-                    self.dev.calib.lab4_resetSpecifics(lab) 
-                    self.dev.labc.default(lab) 
-                    self.dev.labc.automatch_phab(lab) 
+                    self.dev.calib.lab4_resetSpecifics(lab)
+                    self.dev.labc.default(lab)
+                    self.dev.labc.automatch_phab(lab)
 
                     #self.l4reg(lab, 8, vadjp)
                     continue
@@ -287,15 +288,15 @@ class LAB4_Controller:
                     self.logger.error('autotune vadjp stuck... returning initial value')
                     return initial
             return vadjp
-                
+
         def autotune_vadjn(self, lab):
             self.set_tmon(lab, self.tmon['A1'])
             self.montimingSelectFn(lab)
             scanNum = self.labMontimingMapFn(lab)
 
             vadjn = 1640
-            delta = 20            
-            self.l4reg(lab, 3, vadjn)            
+            delta = 20
+            self.l4reg(lab, 3, vadjn)
             width = self.scan_width(scanNum, 64)
             if width == 0 or width > 4400:
                 self.logger.error("VadjN looks stuck")
@@ -319,8 +320,8 @@ class LAB4_Controller:
                 self.l4reg(lab, 3, vadjn)
                 width = self.scan_width(scanNum, 64)
                 self.logger.debug("Trial: vadjn %d width %f" % ( vadjn, width))
-            return vadjn            
-                
+            return vadjn
+
         ''' switch the phase scanner to free-scan (ChipScope view) mode '''
         def scan_free(self):
             self.write(self.map['PHASECMD'], 0x01)
@@ -331,7 +332,7 @@ class LAB4_Controller:
             width_time_conversion=128/(self.dev.SAMPLING_RATE*1e-3)/2257/2
             time_conversion=128/(self.dev.SAMPLING_RATE*1e-3)/2257 #this converts the arb values to a time
 
-            scanNum = self.labMontimingMapFn(lab)            
+            scanNum = self.labMontimingMapFn(lab)
             for strb in ['A1', 'A2', 'B1', 'B2', 'WR_STRB','PHAB']:
                 self.set_tmon(lab, self.tmon[strb])
                 param = self.scan_pulse_param(scanNum, 0)
@@ -351,7 +352,7 @@ class LAB4_Controller:
                 # get the second pulse, after the end of the first
                 p2 = self.scan_pulse_param(scanNum, p1[2])
                 self.logger.debug(f"{strb}: width {p1[0]*width_time_conversion:.3f} from {p1[1]*time_conversion:.3f} - {p1[2]*time_conversion:.3f} and {p2[1]*time_conversion:.3f} - {p2[2]*time_conversion:.3f}")
-                
+
         def scan_pulse_param(self, scan, start):
             param = []
             width = self.scan_width(scan)
@@ -362,7 +363,7 @@ class LAB4_Controller:
             fe = self.scan_edge(scan, 0, (start+re) % 4480)
             param.append(fe)
             return param
-            
+
         ''' scan the full width of a signal (how many 1s are in a 2-clock period) '''
         def scan_width(self, scanNum, trials=1):
             self.write(self.map['PHASEARG'], scanNum)
@@ -372,7 +373,7 @@ class LAB4_Controller:
                 val = self.read(self.map['PHASECMD'])
                 while val != 0x00:
                     val = self.read(self.map['PHASECMD'])
-                res += self.read(self.map['PHASERES'])                
+                res += self.read(self.map['PHASERES'])
             return res/(trials*1.0)
 
         ''' get the value of a signal at a specific phase step '''
@@ -380,7 +381,7 @@ class LAB4_Controller:
             if position > 4479:
                 self.logger.error("Position must be 0-4479.")
                 return None
-            val = bf(0)                
+            val = bf(0)
             val[15:0] = position
             val[19:16] = scanNum
             self.write(self.map['PHASEARG'], int(val))
@@ -389,7 +390,7 @@ class LAB4_Controller:
             while res != 0x00:
                 res = self.read(self.map['PHASECMD'])
             return self.read(self.map['PHASERES'])
-        
+
         ''' locate the edge of a signal. 65535 means "no edge found" '''
         def scan_edge(self,scanNum, pos=0, start=0):
             val = bf(0)
@@ -406,16 +407,16 @@ class LAB4_Controller:
         def ssp_width(self, lab):
             self.montimingSelectFn(lab)
             scanNum = self.labMontimingMapFn(lab)
-            self.set_tmon(lab, self.tmon['SSPin'])            
+            self.set_tmon(lab, self.tmon['SSPin'])
             width = self.scan_width(scanNum)
             return width
-        
+
         def set_amon(self, lab, value):
             self.l4reg(lab, 12, value)
 
         def set_tmon(self, lab, value):
             self.l4reg(lab, 396, value)
-            
+
         def clr_phase(self, lab):
             self.l4reg(lab, 396, self.tmon['PHAB']+128)
             self.l4reg(lab, 396, self.tmon['PHAB'])
@@ -426,14 +427,14 @@ class LAB4_Controller:
                 ctrl[1] = 1
                 self.write(self.map['CONTROL'], int(ctrl))
                 ctrl = bf(self.read(self.map['CONTROL']))
-                
+
         def stop(self):
             ctrl = bf(self.read(self.map['CONTROL']))
             while ctrl[2]:
                 ctrl[1] = 0
                 self.write(self.map['CONTROL'], int(ctrl))
                 ctrl = bf(self.read(self.map['CONTROL']))
-        
+
         ''' set trigger repeat level. This is an immensely crude way
             of adjusting the readout length: you can change it in units of 1024 samples
             complain to me later :) '''
@@ -451,8 +452,8 @@ class LAB4_Controller:
             trig = (1<<31) | (repeat<<24)
             self.logger.debug("setting trigger register:", hex(trig))
             self.write(self.map['TRIGGER'], trig)
-            return                
-                
+            return
+
         '''
         send software trigger. block=True means wait until readout complete. numTrig sends that many triggers (up to 256).
         safe allows disabling the run mode check if you already know it is running
@@ -498,7 +499,7 @@ class LAB4_Controller:
                 rdout = bf(self.read(self.map['READOUT']))
                 rdout[1] = 1
                 rdout[2] = reset_readout
-                self.write(self.map['READOUT'], rdout) 
+                self.write(self.map['READOUT'], rdout)
                 return 0
         '''
         reset Wilkinson ramp controller
@@ -507,10 +508,10 @@ class LAB4_Controller:
                 ctrl = bf(self.read(self.map['CONTROL']))
                 ctrl[8] = 1
                 self.write(self.map['CONTROL'], ctrl)
-        
+
         '''
         enables LAB run mode (sample+digitize+readout)
-        '''    
+        '''
         def run_mode(self, enable=True):
             ctrl = bf(self.read(self.map['CONTROL']))
             if enable:
@@ -525,7 +526,7 @@ class LAB4_Controller:
         def testpattern_mode(self, enable=True):     #when enabled, SELany bit is 0
             rdout = bf(self.read(self.map['READOUT']))
             if enable:
-                rdout[4] = 0 
+                rdout[4] = 0
                 self.write(self.map['READOUT'], rdout)
             else:
                 rdout[4] = 1
@@ -545,10 +546,10 @@ class LAB4_Controller:
             else:
                 ctrl[15] = 0
             self.write(self.map['CONTROL'], ctrl)
-    
+
         def read(self, addr):
             return self.dev.read(addr + self.base)
-    
+
         def write(self, addr, value):
             self.dev.write(addr + self.base, int(value))
 
@@ -559,7 +560,7 @@ class LAB4_Controller:
             check_mode = 1, check individual readout fifo empties, return 12 bits
             '''
             if check_fifos:
-                return rdout[27:16]    
+                return rdout[27:16]
             else:
                 return rdout[3]
 
@@ -570,7 +571,7 @@ class LAB4_Controller:
                 self.l4reg(lab4, 386, int(sstoutfb)) #set sstoutfb (should already be set)
                 '''turn off internal Vadjn buffer bias'''
                 self.l4reg(lab4, 2, 0)      #PCLK-1=2 : VanN
-                
+
                 calFbs = None
                 if calFbs == None:
                     self.logger.debug("Using default Vtrimfb of 1300.")
@@ -581,15 +582,15 @@ class LAB4_Controller:
                         for i in range(self.numLabs):
                             self.l4reg(i,11,calFbs[i])
                         else:
-                            self.l4reg(lab4, 11, calFbs[lab4])                             
+                            self.l4reg(lab4, 11, calFbs[lab4])
             else:
                 '''turn on internal Vadjn buffer bias'''
                 self.l4reg(lab4, 2, 1024)
-                
+
         def l4reg(self, lab, addr, value, verbose=False):
             ctrl = bf(self.read(self.map['CONTROL']))
             if ctrl[1]:  #should be checking ctrl[2], which indicates run-mode. but not working 6/9
-                self.logger.error("LAB4_Controller is running, cannot update registers.") 
+                self.logger.error("LAB4_Controller is running, cannot update registers.")
                 return
             user = bf(self.read(self.map['L4REG']))
             if user[31]:
@@ -599,7 +600,7 @@ class LAB4_Controller:
             user[23:12] = addr
             user[28:24] = lab
             user[31] = 1
-            self.logger.debug("Going to write 0x%X" % int(user)) 
+            self.logger.debug("Going to write 0x%X" % int(user))
             self.write(self.map['L4REG'], int(user))
             while not user[31]:
                 user = bf(self.read(self.map['L4REG']))
@@ -618,12 +619,12 @@ class LAB4_Controller:
             spec = self.calibrations.lab4_specifics(lab4)
             for item in spec.items():
                 self.l4reg(lab4, item[0], item[1], verbose=verbose)
-                
+
         ''' fully initialize a LAB4 '''
         def default(self, lab4=None, initial=True):
             if lab4 is None:
                 lab4 = self.labAll
-            
+
             # There are two sets of defauts: there's the universal LAB4 defaults,
             # which are basically only sampling-rate dependent, and then there's
             # the per-LAB guys.
@@ -631,25 +632,25 @@ class LAB4_Controller:
             # The universal ones are just grabbed by the LAB4 controller,
             # and then we grab the per-LAB ones from RadCalib, which, if they
             # haven't been loaded yet, tries the defaults.
-                
+
             # Try to load the global defaults if we haven't already.
             if self.defaults is None:
                 self.load_defaults()
-            
+
             # and use defaults. These can be globally loaded if desired.
             self.logger.info("Loading global defaults...")
             for item in self.defaults.items():
                 self.l4reg(lab4, item[0], item[1])
             self.logger.debug("done.")
-            
+
             # The specs, however, have to be loaded 1 by 1.
             larr = []
-            if lab4 == self.labAll:                
+            if lab4 == self.labAll:
                 for i in range(self.numLabs):
                     larr.append(i)
             else:
                 larr.append(lab4)
-            
+
             for li in larr:
                 self.logger.info("Loading specifics for LAB%d..." % li)
                 self.update(li)
@@ -663,4 +664,3 @@ class LAB4_Controller:
                     time.sleep(0.5)
                     self.l4reg(lab4, 2, 0)
                     self.logger.debug("done.")
-                
