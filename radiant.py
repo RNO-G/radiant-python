@@ -139,8 +139,10 @@ class RADIANT:
 
         # Dummy calibration for now. Need to redo the calibration core anyway.
         self.labc = LAB4_Controller(self, self.map['LAB4_CTRL_BASE'], self.calib, self.logger, **config)
+
+        self.logger.info("Write calibation to LAB4D memory")
         for lab in range(24):
-            self.dev.labc.update(lab)
+            self.labc.update(lab)
 
         # Calram
         self.calram = LAB4_Calram(self, self.map['LAB4_CALRAM_BASE'], self.labc, numLabs=24, labAllMagic=31)
