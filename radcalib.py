@@ -86,8 +86,9 @@ class RadCalib:
             self.logger.warning(f"File {namestr} not found: using defaults")
             self.resetCalib()
 
-        for lab in self.numLabs:
-            self.dev.labc.update(lab)
+        if self.dev.labc is not None:
+            for lab in range(self.numLabs):
+                self.dev.labc.update(lab)
 
     # Gets the LAB4-specific parameters for each LAB.
     def lab4_specifics(self, lab):
