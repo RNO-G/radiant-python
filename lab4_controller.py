@@ -60,13 +60,12 @@ class LAB4_Controller:
         }
 
         # the kwargs list was long: see above for the list of all config options.
-        def __init__(self, dev, base, calibrations, logger, **kwargs):
+        def __init__(self, dev, base, logger, **kwargs):
             self.defaults = None
 
             #numLabs=12, labAll=15, syncOffset=0, labMontimingMapFn=None, regclrAll=0xFFF):
             self.dev = dev
             self.base = base
-            self.calibrations = calibrations
             self.logger = logger
             # defaulty-defaulty
             for item in self.defconfig:
@@ -277,7 +276,7 @@ class LAB4_Controller:
                     vadjp -= delta
                 vadjp = int(vadjp)
                 oldtrial = trial
-                self.calibrations.calib["specifics"][lab][8] = vadjp
+                self.dev.calib.lab4_specifics_set(lab, 8, vadjp)
                 self.l4reg(lab, 8, vadjp)
                 rising=self.scan_edge(scanNum, 1, 0)
                 falling=self.scan_edge(scanNum, 0, rising+100)
@@ -616,7 +615,7 @@ class LAB4_Controller:
 
         ''' update the *specifics* for a given lab4 '''
         def update(self, lab4, verbose=False):
-            spec = self.calibrations.lab4_specifics(lab4)
+            spec = self.calib.lab4_specifics(lab4)
             for item in spec.items():
                 self.l4reg(lab4, item[0], item[1], verbose=verbose)
 

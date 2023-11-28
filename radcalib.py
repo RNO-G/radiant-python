@@ -87,8 +87,11 @@ class RadCalib:
             self.resetCalib()
 
         if self.dev.labc is not None:
+            self.logger.info("Update Lab4Ds ...")
             for lab in range(self.numLabs):
                 self.dev.labc.update(lab)
+        else:
+            self.logger.warning("Updating Lab4Ds impossible, the Lab4D_Controller is not initialized!")
 
     # Gets the LAB4-specific parameters for each LAB.
     def lab4_specifics(self, lab):

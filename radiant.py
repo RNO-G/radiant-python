@@ -108,13 +108,11 @@ class RADIANT:
         # create the calibration interface. Starts off being unloaded.
         # Will be loaded when a DNA's present.
         # If we try to use without a DNA, use lab4generic_3G2.p's parameters.
-        if self.SAMPLING_RATE==2400:
-            def_filename=pathlib.Path(__file__).parent / "data" / "lab4generic_2G4.p"
+        if self.SAMPLING_RATE == 2400:
+            def_filename = pathlib.Path(__file__).parent / "data" / "lab4generic_2G4.p"
         else:  # if SAMPLING RATE is unspecified, default to 3200
-            def_filename=pathlib.Path(__file__).parent / "data" / "lab4generic_3G2.p"
+            def_filename = pathlib.Path(__file__).parent / "data" / "lab4generic_3G2.p"
 
-        self.labc = None  # necessary to already define labc (as None) for init of RadCalib
-        self.calib = RadCalib(self, def_filename, logger=self.logger)
         self.jtag = RadJTAG(self)
 
         # create the CPLDs. These are really only for JTAG configuration.
@@ -137,12 +135,10 @@ class RADIANT:
                'montimingSelectFn' : self.monSelect,
                'regclrAll' : 0x1 }
 
-        # Dummy calibration for now. Need to redo the calibration core anyway.
-        self.labc = LAB4_Controller(self, self.map['LAB4_CTRL_BASE'], self.calib, self.logger, **config)
+        self.labc = LAB4_Controller(self, self.map['LAB4_CTRL_BASE'], self.logger, **config)
 
-        self.logger.info("Write calibation to LAB4D memory")
-        for lab in range(24):
-            self.labc.update(lab)
+        # Needs to be initalized after LAB4_Controller
+        self.calib = RadCalib(self, def_filename, logger=self.logger)
 
         # Calram
         self.calram = LAB4_Calram(self, self.map['LAB4_CALRAM_BASE'], self.labc, numLabs=24, labAllMagic=31)
