@@ -615,7 +615,7 @@ class LAB4_Controller:
 
         ''' update the *specifics* for a given lab4 '''
         def update(self, lab4, verbose=False):
-            spec = self.calib.lab4_specifics(lab4)
+            spec = self.dev.calib.lab4_specifics(lab4)
             for item in spec.items():
                 self.l4reg(lab4, item[0], item[1], verbose=verbose)
 

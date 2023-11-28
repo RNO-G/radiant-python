@@ -139,6 +139,7 @@ class RADIANT:
 
         # Needs to be initalized after LAB4_Controller
         self.calib = RadCalib(self, def_filename, logger=self.logger)
+        self.calib.load(self.uid())
 
         # Calram
         self.calram = LAB4_Calram(self, self.map['LAB4_CALRAM_BASE'], self.labc, numLabs=24, labAllMagic=31)

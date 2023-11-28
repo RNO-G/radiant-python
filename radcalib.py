@@ -42,7 +42,7 @@ class RadCalib:
         # self.resetCalib()
 
         # load calibration, if not exists reset calibration
-        self.load(self.dev.uid())
+        # self.load(self.dev.uid())
 
     def resetCalib(self):
         self.logger.info("Reset calibration ...")
