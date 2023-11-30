@@ -1,5 +1,6 @@
 import pathlib
 import time
+from multiprocessing import Process
 
 
 class DateVersion(object):
@@ -47,11 +48,11 @@ def reset(radiant):
 		radiant.write(radiant.map['BM_I2CGPIO_BASE']+4*i, 0xF0)
 
 	time.sleep(1)
- 
+
 
 def _analog_setup(radiant):
     # From radiant-python/example/analog_setup.py
-    
+
 	# enable LAB4 + trigger and set LED red
 	for i in range(6):
 		radiant.write(radiant.map['BM_I2CGPIO_BASE']+4*i, 0xF0)
@@ -71,9 +72,24 @@ def _analog_setup(radiant):
 
 
 def setup_radiant(station, version=3):
+	station.radiant_board.logger.info("Start setup radiant!")
 	cpld_fw = pathlib.Path(__file__).parent / 'data' / f'radiant_aux_v{version}.bit'
-	station.radiant_board.cpl.configure(cpld_fw)
-	station.radiant_board.cpr.configure(cpld_fw)
+
+	station.radiant_board.logger.info(f"Program CPLDs with {cpld_fw}")
+	p1 = Process(target=station.radiant_board.cpl.configure, args=(cpld_fw))
+	p2 = Process(target=station.radiant_board.cpr.configure, args=(cpld_fw))
+	# station.radiant_board.cpl.configure(cpld_fw)
+	# station.radiant_board.cpr.configure(cpld_fw)
+
+	p1.start()
+	p2.start()
+	p1.join(timeout=10)
+	p2.join(timeout=10)
+	p1.terminate()
+	p2.terminate()
+	if p1.exitcode is None or p2.exitcode is None:
+		station.radiant_board.logger.error(f"Programming of the CPLDs timedout.")
+		raise TimeoutError()
 
 	_analog_setup(station.radiant_board)
 
