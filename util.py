@@ -75,21 +75,16 @@ def setup_radiant(station, version=3):
     station.radiant_board.logger.info("Start setup radiant!")
     cpld_fw = pathlib.Path(__file__).parent / 'data' / f'radiant_aux_v{version}.bit'
 
-    station.radiant_board.logger.info(f"Program CPLDs with {cpld_fw}")
-    p1 = Process(target=station.radiant_board.cpl.configure, args=(cpld_fw,))
-    p2 = Process(target=station.radiant_board.cpr.configure, args=(cpld_fw,))
-    # station.radiant_board.cpl.configure(cpld_fw)
-    # station.radiant_board.cpr.configure(cpld_fw)
+    for cpld in [station.radiant_board.cpl, station.radiant_board.cpr]:
+        p1 = Process(target=cpld.configure, args=(cpld_fw,))
 
-    p1.start()
-    p2.start()
-    p1.join(timeout=10)
-    p2.join(timeout=10)
-    p1.terminate()
-    p2.terminate()
-    if p1.exitcode is None or p2.exitcode is None:
-        station.radiant_board.logger.error(f"Programming of the CPLDs timedout.")
-        raise TimeoutError()
+        p1.start()
+        p1.join(timeout=10)
+        p1.terminate()
+
+        if p1.exitcode is None:
+            station.radiant_board.logger.error(f"Programming of the CPLDs timed out.")
+            raise TimeoutError()
 
     _analog_setup(station.radiant_board)
 
