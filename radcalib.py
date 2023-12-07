@@ -194,7 +194,7 @@ class RadCalib:
 
         t = self.getTimeRun(freq*1e6, verbose=False)
         
-        print("Initial seam/slow sample timing:", t[lab][0], t[lab][127])
+        print("Initial seam/slow sample timing: %0.2f %0.2f" % (t[lab][0], t[lab][127]))
         # Check the times to see if we're *so* far off that
         # our measured seam time might actually be *negative*.
         # Note that even if it isn't, just declaring that it's
@@ -228,7 +228,7 @@ class RadCalib:
         slow_slow_factor=1.01
         slow_fast_factor=0.95 #confusing IK but it's slow sample. make is slightly fast
 
-        mean_slow_factor=1.001 #0.1% of 416.66 means this ends when the mean is ~0.4ps off of ideal. seam sample should close enough then.
+        mean_slow_factor=1.0005 #0.1% of 416.66 means this ends when the mean is ~0.4ps off of ideal. seam sample should close enough then.
         mean_fast_factor=0.999
 
         if(self.dev.SAMPLING_RATE==3200): #help tuning a bit
@@ -313,8 +313,8 @@ class RadCalib:
             self.dev.labc.update(lab,verbose=verbose)
             print("done")
             t = self.getTimeRun(freq*1e6, verbose=False)
-            print("Seam/slow sample timing now:", t[lab][0], t[lab][127])
-            print("mean of middle sample timings now:", np.mean(t[lab][1:127]))
+            print("Seam/slow sample timing now: %0.2f %0.2f" % (t[lab][0], t[lab][127]))
+            print("mean of middle sample timings now: %0.2f" % np.mean(t[lab][1:127]))
             meanSample=np.mean(t[lab][1:126])
             if curTry == maxTries:
                 print("initial tune failed! Restoring initial state.")
@@ -397,8 +397,8 @@ class RadCalib:
             print("done")
             # fetch times again
             t = self.getTimeRun(freq*1e6, verbose=False)
-            print("Seam/slow sample timing now:", t[lab][0], t[lab][127])
-            print("mean of middle sample timings now:", np.mean(t[lab][1:127]))
+            print("Seam/slow sample timing now: %0.2f %0.2f" %( t[lab][0], t[lab][127]))
+            print("mean of middle sample timings now: %0.2f" % np.mean(t[lab][1:127]))
 
             if np.sum(t[lab][1:128]) > (self.nomSample*127.68):
                 print("Feedback LAB%d way off (%f): %d -> %d" % (lab, (self.nomSample*128)-np.sum(t[lab][1:128]), t[lab][0], -1*t[lab][0]))
@@ -413,9 +413,9 @@ class RadCalib:
             if do_quit: 
                 print('')
                 break
-        print("Ending seam sample :", t[lab][0],"feedback",self.calib['specifics'][lab][seamTuneNum],"using register ",seamTuneNum)
-        print("Ending slow sample :", t[lab][127],"average earlier trims", oldavg)
-        print("Timing through all samples :", np.sum(t[lab][0:128])/1000," ns... only ",53.333-np.sum(t[lab][0:128])/1000, " ns off")
+        print("Ending seam sample : %0.2f feedback %0.2f using register %i" %(t[lab][0],self.calib['specifics'][lab][seamTuneNum],seamTuneNum))
+        print("Ending slow sample : %0.2f average earlier trims %0.2f" %( t[lab][127], oldavg))
+        print("Timing through all samples : %0.", np.sum(t[lab][0:128])/1000," ns... only ",53.333-np.sum(t[lab][0:128])/1000, " ns off")
         
         #turn these off so they don't run in the background
         self.dev.calSelect(int(lab/4))
