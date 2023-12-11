@@ -39,25 +39,23 @@ for j in range(1):
             print('skipping lab ',i)
             continue 
         lab=i
-        print(lab)
         #dump strobes 
-        dev.labc.scan_dump(lab)
+        #dev.labc.scan_dump(lab)
         freq=510
         dev.calSelect(int(lab/4))
-        dev.radsig.enable(False)
+        #dev.radsig.enable(False)
         dev.radsig.signal(pulse=False,band = (2 if freq>100 else 0))
-        dev.calib.updatePedestals()
+        #dev.calib.updatePedestals()
         dev.radsig.enable(True)
         dev.radsig.setFrequency(freq)
         t=dev.calib.getTimeRun(freq*1e6,verbose=False)
-        print('time through fast samples = %0.3f'%(np.sum(t[lab][0:127])/1000),' ns')
-        print('time through all samples = %0.3f'%(np.sum(t[lab][0:128])/1000),' ns')
-        print('seam sample = %0.3f'%t[lab][0],' ps')
-        print('slow sample = %0.3f'%t[lab][127], ' ps')
-        print('avg of middle samples = %0.3f'%np.mean(t[lab][1:127]),' ps')
+        #print('time through fast samples = %0.3f'%(np.sum(t[lab][0:127])/1000),' ns')
+        #print('time through all samples = %0.3f'%(np.sum(t[lab][0:128])/1000),' ns')
+        print('lab %i : seam %0.2f, slow %0.2f, mean %0.2f ps'%(lab,t[lab][0],t[lab][127],np.mean(t[lab][1:127])))
+        #print('slow sample = %0.3f'%t[lab][127], ' ps')
+        #print('avg of middle samples = %0.3f'%np.mean(t[lab][1:127]),' ps')
         np.savez('timing_data/lab_%i.npz'%lab,timing=t[lab][0:128])
         time.sleep(0.2)
-        print()
 
 dev.calSelect()
 dev.radsig.enable(False)

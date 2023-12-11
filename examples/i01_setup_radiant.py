@@ -55,7 +55,8 @@ dev.labc.automatch_phab(dev.labc.labAll)
 dev.calib.resetCalib()
 dna = dev.dna()
 dev.calib.load(dna)
-
+for i in range(24):
+    dev.labc.update(i)
 dev.labc.testpattern_mode(False)
 
 dev.calram.zero()
