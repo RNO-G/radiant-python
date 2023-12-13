@@ -72,7 +72,7 @@ class RadCalib:
         # removing what was in the there
         self.calib = {}
         self.calib['pedestals'] = None
-        self.calib['specifics'] = [{}] * self.numLabs
+        self.calib['specifics'] = [{} for _ in range(self.numLabs)]
 
         if path.isfile(namestr):
             with open(namestr, "r") as f:
