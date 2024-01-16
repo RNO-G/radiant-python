@@ -170,7 +170,7 @@ class LAB4_Controller:
                         self.logger.warning(f"LAB{i_lab:<2}: Delay line not working (width {width}, "
                                             "should be within [200, 4000]), trying to kick")
 
-                        self.l4reg(i_lab, 8, 2500)
+                        self.l4reg(i_lab, 8, self.defaults[8] - 200)
                         time.sleep(0.1)
                         width = self.scan_width(scanNum)
                         self.logger.warning(f"LAB{i_lab:<2}: Width now {width}")
