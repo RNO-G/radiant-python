@@ -172,7 +172,7 @@ class LAB4_Controller:
                                             "should be within [200, 4000]), trying to kick")
 
                         # Delay line to far off, slow things down to see if DLL converges ...
-                        self.l4reg(i_lab, 8, self.defaults[8] - 200)
+                        self.l4reg(i_lab, 8, self.dev.calib.generic[8] - 200)
                         time.sleep(0.1)
                         width = self.scan_width(scanNum)
                         self.logger.warning(f"LAB{i_lab:<2}: Width now {width}")
@@ -184,7 +184,7 @@ class LAB4_Controller:
                         continue
 
                     # ... if that worked go back to default value
-                    self.l4reg(i_lab, 8, self.defaults[8])
+                    self.l4reg(i_lab, 8, self.dev.calib.generic[8])
                     width = self.scan_width(scanNum)
                     self.logger.warning(f"LAB{i_lab:<2}: Width now {width}")
 
