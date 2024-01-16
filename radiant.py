@@ -127,13 +127,15 @@ class RADIANT:
         # MONTIMINGs are muxed into 2, with 0-11 getting 0 and 12-23 getting 1
         # Call monSelect when switching MONTIMING to configure the CPLD properly to mux it in
         # Only 1 REGCLR, so just write 0x1
-        config = { 'numLabs' : 24,
-               'labAll' : 31,
-               'syncOffset' : 560,
-               'invertSync' : True,
-               'labMontimingMapFn' : lambda lab: int(lab/12),
-               'montimingSelectFn' : self.monSelect,
-               'regclrAll' : 0x1 }
+        config = {
+            'numLabs': 24,
+            'labAll': 31,
+            'syncOffset': 560,
+            'invertSync': True,
+            'labMontimingMapFn': lambda lab: int(lab/12),
+            'montimingSelectFn': self.monSelect,
+            'regclrAll': 0x1
+        }
 
         self.labc = LAB4_Controller(self, self.map['LAB4_CTRL_BASE'], self.logger, **config)
 
