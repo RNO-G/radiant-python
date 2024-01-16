@@ -165,11 +165,13 @@ class LAB4_Controller:
                 width = self.scan_width(scanNum)
                 n_iter = 0
                 if not 200 < width < 4000:
+                    # Also see https://github.com/RNO-G/radiant-python/pull/2 for dicussion.
                     while not 200 < width < 4000 and n_iter < 50:
                         # not working
                         self.logger.warning(f"LAB{i_lab:<2}: Delay line not working (width {width}, "
                                             "should be within [200, 4000]), trying to kick")
 
+                        # Delay line to far off, slow things down to see if DLL converges ...
                         self.l4reg(i_lab, 8, self.defaults[8] - 200)
                         time.sleep(0.1)
                         width = self.scan_width(scanNum)
@@ -181,6 +183,7 @@ class LAB4_Controller:
                         err = True
                         continue
 
+                    # ... if that worked go back to default value
                     self.l4reg(i_lab, 8, self.defaults[8])
                     width = self.scan_width(scanNum)
                     self.logger.warning(f"LAB{i_lab:<2}: Width now {width}")
