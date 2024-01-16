@@ -398,5 +398,7 @@ class RADIANT:
                 self.write(self.map['PWM_BASE']+0x4, int(oeb))
 
     def add_logger_handler(self, host, port="8001"):
-        self.logger.addHandler(logging.handlers.SocketHandler(
-            host=host, port=port))
+        handler = logging.handlers.SocketHandler(
+            host=host, port=port)
+
+        self.logger.addHandler(handler)

@@ -30,7 +30,7 @@ class RadCPLD:
 		self.__se8 = 0x47008000
 		# shift 8
 		self.__s8 =  0x47000000
-		
+
     # get device ID
 	def id(self):
 		self.enable(True)
@@ -47,20 +47,20 @@ class RadCPLD:
 	def configure(self, fn, useBurst=True):
 		self.logger.info(f'Programming CPLD with firmware {fn}')
 		if useBurst:
-			self.dev.setJtagBurstType(self.dev.BurstType.BYTE)		
-		
+			self.dev.setJtagBurstType(self.dev.BurstType.BYTE)
+
 		f = self.getbitstream(fn)
 		if f is None:
 			self.logger.error("File not OK")
 			return False
-		
+
 		self.dev.write(self.addr, self.__tlr)
-		
+
 		# ISC_ENABLE
 		self.__shiftirdr(0xC6, 0x00)
 		# ISC_ERASE
 		self.__shiftirdr(0x0E, 0x01, False)
-		self.logger.info("Erasing...")		
+		self.logger.info("Erasing...")
 		self.__runtest(1)
 		self.logger.debug("done")
 		# BYPASS
@@ -74,7 +74,7 @@ class RadCPLD:
 		# Go to SDR (using magic shift-IR + self.sir = shift-DR)
 		self.dev.write(self.addr, self.__sir)
 		self.logger.info("Loading")
-		if useBurst:	
+		if useBurst:
 			# clock a lot of FFs to ensure we're starting off OK
 			self.dev.write(self.addr, 0x670000FF)
 			# now burst in 97 at a time, and exit still in burst mode
@@ -98,7 +98,7 @@ class RadCPLD:
 				lastXfer = (len(nv) == 0)
 				if len(b) == 128 or lastXfer:
 					self.dev.burstWrite(self.addr, b, inBurst=True, endBurst=lastXfer)
-					b = bytearray(0)		
+					b = bytearray(0)
 #					self.logger.debug(".")
 		else:
 			# clock a lot of FFs to ensure we're starting off OK
@@ -119,7 +119,7 @@ class RadCPLD:
 		self.dev.write(self.addr, 0x67008000 | ord(val))
 		# runtest for a while
 		self.dev.write(self.addr, self.__sirrti)
-		
+
 		for i in range(50):
 			self.__runtest(0.002)
 		# and disable ISC
@@ -127,7 +127,7 @@ class RadCPLD:
 		f.close()
 		self.enable(False)
 		self.logger.debug("OK")
-		
+
 	# Useful for checking if the file you've got is
 	# correct *before* screwing with things.
 	# Call this with the filename, if it returns None
@@ -151,15 +151,16 @@ class RadCPLD:
 		# Now dump the first 13 strings
 		# as output, just to check
 		# we're parsing right.
+		s = "\n\t"
 		for i in range(13):
-			s = readstr(f)
-			self.logger.info(s)
+			s += readstr(f) + "\n\t"
+		self.logger.info(s)
 
 		# Now check to see if the next is 0xFF
 		val = f.read(1)
 		if val != b'\xff':
 			return None
-			
+
 		# now return the open file
 		return f
 
@@ -184,7 +185,7 @@ class RadCPLD:
 			rv <<= i*8
 			val |= rv
 		return val
-		
+
 	# Shift an instruction in and optionally
 	# go to RTI first
 	def __shiftir(self, instr, dorti=True):
@@ -192,7 +193,7 @@ class RadCPLD:
 			self.dev.write(self.addr, self.__rti)
 		self.dev.write(self.addr, self.__sir)
 		self.dev.write(self.addr, self.__se8 | instr)
-		
+
 	# Shift an instruction, then data,
 	# optionally going to RTI first
 	def __shiftirdr(self, ir, dr, dorti=True):
@@ -201,7 +202,7 @@ class RadCPLD:
 		self.dev.write(self.addr, self.__se8 | dr)
 		self.dev.write(self.addr, self.__sirrti)
 		self.__runtest(0.001)
-		
+
     # get status register
 	def __read_status(self):
 		self.__shiftir(0x3C)
@@ -211,7 +212,7 @@ class RadCPLD:
 		val = self.__readdr32()
 		self.dev.write(self.addr, self.__tlr)
 		return val
-		
+
     # disable in-system configuration
 	def __isc_disable(self, dorti=True):
 		self.__shiftir(0x26, dorti)
@@ -222,7 +223,7 @@ class RadCPLD:
 		for i in range(50):
 			self.__runtest(0.002)
 		self.dev.write(self.addr, self.__tlr)
-		
+
     # read the FEABITS in CPLD
 	def __read_feabits(self):
 		self.__shiftirdr(0x74, 0x08)
@@ -234,4 +235,3 @@ class RadCPLD:
 		self.dev.write(self.addr, self.__sirrti)
 		# and disable ISC
 		self.__isc_disable(False)
-		
