@@ -111,7 +111,7 @@ class LAB4_Controller:
             self.write(self.map['READOUTEMPTY'], threshold)
 
         def load_defaults(self, fn=None):
-            if fn == None:
+            if fn is None:
                 if self.sampling_rate == 2400:
                     fn = pathlib.Path(__file__).parent / "data" / "lab4defaults_2G4.p"
                 else:  # Default to 3200 MHz if no filename is specified
@@ -129,11 +129,9 @@ class LAB4_Controller:
         # by shift delays (for instance, shoving WR forward 2 sysclks
         # to compensate for an external delay)
         def automatch_phab(self, lab, match=1):
-            labs = []
-            if lab == self.labAll:
-                labs = range(self.numLabs)
-            else:
-                labs = [lab]
+
+            labs = range(self.numLabs) if lab == self.labAll else [lab]
+
             # Find our start point. SYNC is always scan #12
             sync_edge = self.scan_edge(12, 1)
             if sync_edge == 0xFFFF:
@@ -143,9 +141,9 @@ class LAB4_Controller:
 
             self.logger.debug("Found sync edge: %d" % sync_edge)
             err = False
-            for i in labs:
-                self.montimingSelectFn(i)
-                scanNum = self.labMontimingMapFn(i)
+            for i_lab in labs:
+                self.montimingSelectFn(i_lab)
+                scanNum = self.labMontimingMapFn(i_lab)
                 # Check to see if we're working *at all*!
                 # The issue here is that if we're starting up
                 # and the DLL isn't running, then the trims
@@ -163,46 +161,62 @@ class LAB4_Controller:
                 # which should force the DLL to a known
                 # spot too.
 
-                self.set_tmon(lab, self.tmon['SSTout'])
+                self.set_tmon(i_lab, self.tmon['SSTout'])
                 width = self.scan_width(scanNum)
-                if width < 200 or width > 4000:
-                    # not working
-                    self.logger.warning(f"Delay line not working (width {width}), trying to kick")
-                    self.l4reg(lab, 8, 2500)
-                    time.sleep(0.1)
-                    width = self.scan_width(scanNum)
-                    self.logger.warning(f"Width now {width}")
-                    if width < 200 or width > 4000:
-                        self.logger.error("still not working, bailing")
+                n_iter = 0
+                if not 200 < width < 4000:
+                    # Also see https://github.com/RNO-G/radiant-python/pull/2 for dicussion.
+                    # FS: Was my idea to add this while loop here. Its unclear wheter it
+                    # actually helps here but it should not break anything neither ...
+                    while not 200 < width < 4000 and n_iter < 5:
+                        # not working
+                        self.logger.warning(f"LAB{i_lab:<2}: Delay line not working (width {width}, "
+                                            "should be within [200, 4000]), trying to kick")
+
+                        # Delay line to far off, slow things down to see if DLL converges ...
+                        self.l4reg(i_lab, 8, self.dev.calib.generic[8] - 200)
+                        time.sleep(0.1)
+                        width = self.scan_width(scanNum)
+                        self.logger.warning(f"LAB{i_lab:<2}: Width now {width}")
+                        n_iter += 1
+
+                    if not 200 < width < 4000:
+                        self.logger.error("---> still not working, bailing")
                         err = True
                         continue
-                    self.l4reg(lab, 8, 2700)
 
+                    # ... if that worked go back to default value
+                    self.l4reg(i_lab, 8, self.dev.calib.generic[8])
+                    width = self.scan_width(scanNum)
+                    self.logger.warning(f"LAB{i_lab:<2}: Width now {width}")
 
                 # Find our PHAB sampling point.
-                self.set_tmon(lab, self.tmon['WR_STRB'])
+                self.set_tmon(i_lab, self.tmon['WR_STRB'])
                 wr_edge = self.scan_edge(scanNum, 1, sync_edge)
                 if wr_edge == 0xFFFF:
-                    self.logger.error("No WR_STRB edge found for LAB%d, skipping!" % i)
+                    self.logger.error(f"No WR_STRB edge found for LAB{i_lab}, skipping!")
                     err = True
                     continue
+
                 # if WR_STRB edge finding worked, PHAB should too
-                self.logger.debug("Found WR_STRB edge on LAB%d: %d" % (i, wr_edge))
+                self.logger.debug(f"Found WR_STRB edge on LAB{i_lab}: {wr_edge}")
                 wr_edge = wr_edge - self.syncOffset
                 if wr_edge < 0:
                     wr_edge = wr_edge + 56*80
-                self.logger.debug("Adjusted WR_STRB edge on LAB%d: %d" % (i, wr_edge))
-                self.set_tmon(lab, self.tmon['PHAB'])
+
+                self.logger.debug(f"Adjusted WR_STRB edge on LAB{i_lab}: {wr_edge}")
+                self.set_tmon(i_lab, self.tmon['PHAB'])
                 phab = self.scan_value(scanNum, wr_edge) & 0x01
                 if self.invertSync:
                     phab = phab ^ 0x01
 
                 while phab != match:
-                    self.logger.warning(f"LAB{i} wrong PHAB phase, resetting.")
-                    self.clr_phase(i)
+                    self.logger.warning(f"LAB{i_lab} wrong PHAB phase, resetting.")
+                    self.clr_phase(i_lab)
                     phab = self.scan_value(scanNum, wr_edge) & 0x01
                     if self.invertSync:
                         phab = phab ^ 0x01
+
             return err
 
         def autotune_vadjp(self, lab, initial=2700):
@@ -388,7 +402,7 @@ class LAB4_Controller:
                 while val != 0x00:
                     val = self.read(self.map['PHASECMD'])
                 res += self.read(self.map['PHASERES'])
-            return res/(trials*1.0)
+            return res / (trials * 1.0)
 
         ''' get the value of a signal at a specific phase step '''
         def scan_value(self,scanNum,position):
