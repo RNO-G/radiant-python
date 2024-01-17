@@ -166,7 +166,9 @@ class LAB4_Controller:
                 n_iter = 0
                 if not 200 < width < 4000:
                     # Also see https://github.com/RNO-G/radiant-python/pull/2 for dicussion.
-                    while not 200 < width < 4000 and n_iter < 50:
+                    # FS: Was my idea to add this while loop here. Its unclear wheter it
+                    # actually helps here but it should not break anything neither ...
+                    while not 200 < width < 4000 and n_iter < 5:
                         # not working
                         self.logger.warning(f"LAB{i_lab:<2}: Delay line not working (width {width}, "
                                             "should be within [200, 4000]), trying to kick")
