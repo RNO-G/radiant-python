@@ -137,7 +137,7 @@ class LAB4_Controller:
             if sync_edge == 0xFFFF:
                 # this will never happen
                 self.logger.warning("No sync edge found??")
-                return False
+                return True  # error = True
 
             self.logger.debug("Found sync edge: %d" % sync_edge)
             err = False
@@ -223,19 +223,20 @@ class LAB4_Controller:
             self.set_tmon(lab, self.tmon['SSTout'])
             self.montimingSelectFn(lab)
             scanNum = self.labMontimingMapFn(lab)
-            vadjp=initial
-            has_sstout=False
-            idelta=5
-            kick_tries=0
-            while not has_sstout:
-                kick_tries=kick_tries+1
-                if kick_tries>5:
-                    self.logger.error('kicking not working...')
-                    return vadjp
+
+            vadjp = initial
+            idelta = 5
+            kick_tries = 0
+            while True:
+                kick_tries += 1
+
+                if kick_tries > 5:
+                    self.logger.error(f'{lab}: kicking not working...')
+                    return None
 
                 rising=self.scan_edge(scanNum, 1, 0)
                 if rising == 0xFFFF:
-                    self.logger.warning("No rising edge on VadjP: looks stuck")
+                    self.logger.warning(f"{lab}: No rising edge on VadjP: looks stuck")
                     #vadjp+=idelta
                     self.dev.calib.lab4_resetSpecifics(lab)
                     self.dev.labc.default(lab)
@@ -243,63 +244,70 @@ class LAB4_Controller:
 
                     #self.l4reg(lab, 8, vadjp)
                     continue
-                falling=self.scan_edge(scanNum, 0, rising+100)
+
+                falling = self.scan_edge(scanNum, 0, rising + 100)
 
                 if falling == 0xFFFF:
-                    self.logger.warning("No falling edge on VadjP: looks stuck")
-                    vadjp+=idelta
+                    self.logger.warning(f"{lab}: No falling edge on VadjP: looks stuck")
+                    vadjp += idelta
                     self.l4reg(lab, 8, vadjp)
                     continue
 
-                width=falling-rising
+                width = falling - rising
                 if width < 0:
-                    self.logger.warning("Width less than 0, do something.")
-                    vadjp+=idelta
+                    self.logger.warning(f"{lab}: Width less than 0, do something.")
+                    vadjp += idelta
                     self.l4reg(lab, 8, vadjp)
                     continue
 
-                has_sstout=True
+                break  # Stop when it has reached that point
                 #self.l4reg(lab, 8, vadjp)
 
-            width = 2257/2
-            self.logger.debug(f"SSTout target: {width}")
+            width = 2257 / 2
+            self.logger.debug(f"LAB{lab}: SSTout target: {width}")
             #vadjp=initial
-            delta=20
+            delta = 20
             self.l4reg(lab, 8, vadjp)
             self.set_tmon(lab, self.tmon['SSPout'])
-            rising=self.scan_edge(scanNum, 1, 0)
-            falling=self.scan_edge(scanNum, 0, rising+100)
-            trial=falling-rising
+            rising = self.scan_edge(scanNum, 1, 0)
+            falling = self.scan_edge(scanNum, 0, rising + 100)
+            trial = falling - rising
+
             if trial < 0:
-                self.logger.error("Trial width less than 0, do something.")
+                self.logger.error(f"LAB{lab}: Trial width less than 0, do something.")
                 return
-            oldtrial=trial
-            tune_tries=0
+
+            oldtrial = trial
+            tune_tries = 0
+
             while abs(trial-width) > 2:
                 if trial < width:
                     if oldtrial > width:
-                        delta=delta/2
+                        delta = delta / 2
                         if delta < 1:
                             delta = 1
                     vadjp += delta
                 else:
                     if oldtrial < width:
-                        delta=delta/2
+                        delta = delta / 2
                         if delta < 1:
                             delta = 1
                     vadjp -= delta
+
                 vadjp = int(vadjp)
                 oldtrial = trial
                 self.dev.calib.lab4_specifics_set(lab, 8, vadjp)
                 self.l4reg(lab, 8, vadjp)
-                rising=self.scan_edge(scanNum, 1, 0)
-                falling=self.scan_edge(scanNum, 0, rising+100)
-                trial=falling-rising
-                self.logger.debug(f"Trial: vadjp {vadjp} width {trial} target {width}")
-                tune_tries=tune_tries+1
-                if tune_tries>20:
-                    self.logger.error('autotune vadjp stuck... returning initial value')
-                    return initial
+                rising = self.scan_edge(scanNum, 1, 0)
+                falling = self.scan_edge(scanNum, 0, rising+100)
+                trial = falling - rising
+                self.logger.debug(f"LAB{lab}: Trial - vadjp {vadjp} width {trial} target {width}")
+                tune_tries += 1
+
+                if tune_tries > 20:
+                    self.logger.error(f'LAB{lab}: autotune vadjp stuck... returning None')
+                    return None
+
             return vadjp
 
         def autotune_vadjn(self, lab):
@@ -314,25 +322,28 @@ class LAB4_Controller:
             if width == 0 or width > 4400:
                 self.logger.error("VadjN looks stuck")
                 return 0
+
             oldwidth = width
             self.logger.debug("Trial: vadjn %d width %f" % ( vadjn, width))
-            while abs(width-840) > 0.5:
-                if (width < 840):
-                    if (oldwidth > 840):
-                        delta = delta/2
+            while abs(width - 840) > 0.5:
+                if width < 840:
+                    if oldwidth > 840:
+                        delta = delta / 2
                         if delta < 1:
                             delta = 1
                     vadjn -= delta
                 else:
-                    if (oldwidth < 840):
-                        delta = delta/2
+                    if oldwidth < 840:
+                        delta = delta / 2
                         if delta < 1:
                             delta = 1
                     vadjn += delta
+
                 oldwidth = width
                 self.l4reg(lab, 3, vadjn)
                 width = self.scan_width(scanNum, 64)
                 self.logger.debug("Trial: vadjn %d width %f" % ( vadjn, width))
+
             return vadjn
 
         ''' switch the phase scanner to free-scan (ChipScope view) mode '''
