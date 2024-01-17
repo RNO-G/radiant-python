@@ -328,10 +328,12 @@ class LAB4_Controller:
         ''' dump timing parameters '''
         def scan_dump(self, lab):
             self.montimingSelectFn(lab)
-            width_time_conversion=128/(self.dev.SAMPLING_RATE*1e-3)/2257/2
-            time_conversion=128/(self.dev.SAMPLING_RATE*1e-3)/2257 #this converts the arb values to a time
+            width_time_conversion = 128 / (self.dev.SAMPLING_RATE * 1e-3) / 2257 / 2
+            time_conversion = 128 / (self.dev.SAMPLING_RATE * 1e-3) / 2257  # this converts the arb values to a time
 
             scanNum = self.labMontimingMapFn(lab)
+
+            scan_res = {}
             for strb in ['A1', 'A2', 'B1', 'B2', 'WR_STRB','PHAB']:
                 self.set_tmon(lab, self.tmon[strb])
                 param = self.scan_pulse_param(scanNum, 0)
@@ -339,18 +341,31 @@ class LAB4_Controller:
                 # but we give it some margin
                 if param[0] == 0 or param[0] > 4470.0:
                     self.logger.warning(f"{strb}: not present")
+                    scan_res[strb] = None
                 else:
-                    self.logger.debug(f"{strb}: width {param[0]*width_time_conversion:.3f} from {param[1]*time_conversion:.3f} - {param[2]*time_conversion:.3f}")
+                    self.logger.debug(f"{strb}: width {param[0] * width_time_conversion:.3f} "
+                                      f"from {param[1] * time_conversion:.3f} - {param[2] * time_conversion:.3f}")
+                    scan_res[strb] = [param[0], param[1], param[2]]
+
             for strb in ['SSPin', 'SSPout', 'SSTout','PHASE']:
                 self.set_tmon(lab, self.tmon[strb])
                 # get the first pulse
                 p1 = self.scan_pulse_param(scanNum, 0)
+                scan_res[strb] = None
                 if p1[0] == 0 or p1[0] > 4470.0:
-                    self.logger.error(strb, ": not present")
+                    self.logger.error(f"{strb}: not present")
                     continue
+
                 # get the second pulse, after the end of the first
                 p2 = self.scan_pulse_param(scanNum, p1[2])
-                self.logger.debug(f"{strb}: width {p1[0]*width_time_conversion:.3f} from {p1[1]*time_conversion:.3f} - {p1[2]*time_conversion:.3f} and {p2[1]*time_conversion:.3f} - {p2[2]*time_conversion:.3f}")
+                scan_res[strb] = [p1[0], p1[1], p1[2]]
+
+                self.logger.debug(
+                    f"{strb}: width {p1[0] * width_time_conversion:.3f} from "
+                    f"{p1[1] * time_conversion:.3f} - {p1[2] * time_conversion:.3f} and "
+                    f"{p2[1] * time_conversion:.3f} - {p2[2] * time_conversion:.3f}")
+
+            return scan_res
 
         def scan_pulse_param(self, scan, start):
             param = []
