@@ -231,12 +231,12 @@ class LAB4_Controller:
                 kick_tries += 1
 
                 if kick_tries > 5:
-                    self.logger.error(f'{lab}: kicking not working...')
+                    self.logger.error(f'LAB{lab}: kicking not working...')
                     return None
 
-                rising=self.scan_edge(scanNum, 1, 0)
+                rising = self.scan_edge(scanNum, 1, 0)
                 if rising == 0xFFFF:
-                    self.logger.warning(f"{lab}: No rising edge on VadjP: looks stuck")
+                    self.logger.warning(f"LAB{lab}: No rising edge on VadjP: looks stuck")
                     #vadjp+=idelta
                     self.dev.calib.lab4_resetSpecifics(lab)
                     self.dev.labc.default(lab)
@@ -248,14 +248,14 @@ class LAB4_Controller:
                 falling = self.scan_edge(scanNum, 0, rising + 100)
 
                 if falling == 0xFFFF:
-                    self.logger.warning(f"{lab}: No falling edge on VadjP: looks stuck")
+                    self.logger.warning(f"LAB{lab}: No falling edge on VadjP: looks stuck")
                     vadjp += idelta
                     self.l4reg(lab, 8, vadjp)
                     continue
 
                 width = falling - rising
                 if width < 0:
-                    self.logger.warning(f"{lab}: Width less than 0, do something.")
+                    self.logger.warning(f"LAB{lab}: Width less than 0, do something.")
                     vadjp += idelta
                     self.l4reg(lab, 8, vadjp)
                     continue
@@ -299,14 +299,14 @@ class LAB4_Controller:
                 self.dev.calib.lab4_specifics_set(lab, 8, vadjp)
                 self.l4reg(lab, 8, vadjp)
                 rising = self.scan_edge(scanNum, 1, 0)
-                falling = self.scan_edge(scanNum, 0, rising+100)
+                falling = self.scan_edge(scanNum, 0, rising + 100)
                 trial = falling - rising
                 self.logger.debug(f"LAB{lab}: Trial - vadjp {vadjp} width {trial} target {width}")
                 tune_tries += 1
 
                 if tune_tries > 20:
-                    self.logger.error(f'LAB{lab}: autotune vadjp stuck... returning None')
-                    return None
+                    self.logger.warning(f'LAB{lab}: autotune vadjp stuck... returning initial ')
+                    return initial
 
             return vadjp
 
