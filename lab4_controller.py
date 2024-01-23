@@ -231,12 +231,13 @@ class LAB4_Controller:
                 kick_tries += 1
 
                 if kick_tries > 5:
-                    self.logger.error(f'LAB{lab}: kicking not working...')
+                    self.logger.error(f'LAB{lab}: kicking not working. Return None ...')
                     return None
 
                 rising = self.scan_edge(scanNum, 1, 0)
                 if rising == 0xFFFF:
-                    self.logger.warning(f"LAB{lab}: No rising edge on VadjP: looks stuck")
+                    self.logger.warning(f"LAB{lab}: No rising edge on VadjP: looks stuck. "
+                                        "Reset LAB and run automatch_phab")
                     #vadjp+=idelta
                     self.dev.calib.lab4_resetSpecifics(lab)
                     self.dev.labc.default(lab)
@@ -248,14 +249,16 @@ class LAB4_Controller:
                 falling = self.scan_edge(scanNum, 0, rising + 100)
 
                 if falling == 0xFFFF:
-                    self.logger.warning(f"LAB{lab}: No falling edge on VadjP: looks stuck")
+                    self.logger.warning(f"LAB{lab}: No falling edge on VadjP: looks stuck. "
+                                        f"Update register 8 ({vadjp} -> {vadjp + idelta})")
                     vadjp += idelta
                     self.l4reg(lab, 8, vadjp)
                     continue
 
                 width = falling - rising
                 if width < 0:
-                    self.logger.warning(f"LAB{lab}: Width less than 0, do something.")
+                    self.logger.warning(f"LAB{lab}: Width less than 0, do something. "
+                                        f"Update register 8 ({vadjp} -> {vadjp + idelta})")
                     vadjp += idelta
                     self.l4reg(lab, 8, vadjp)
                     continue
