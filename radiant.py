@@ -3,7 +3,7 @@ from enum import Enum
 from radcpld import RadCPLD
 from lab4_controller import LAB4_Controller
 from lab4_calram import LAB4_Calram
-
+from raddelays import RadDelays
 from radcalib import RadCalib
 from radsig import RadSig
 from radjtag import RadJTAG
@@ -19,7 +19,14 @@ from bf import bf
 import Adafruit_BBIO.GPIO as GPIO
 import time
 
+RADIANT_SAMPLING_RATE = 2400
+
 class RADIANT:
+
+	#hardcode to make it easy
+	SAMPLING_RATE=2400
+	RADIANT_VERSION=2
+
 	## NOTE THIS IS A STATIC FUNCTION
 	def boardmanReset():
 		GPIO.setup("P8_30", GPIO.OUT, pull_up_down=GPIO.PUD_UP, initial=GPIO.HIGH)
@@ -53,6 +60,7 @@ class RADIANT:
 			'LAB4_CTRL_BASE' :   0x10000,
 			'LAB4_CALRAM_BASE' : 0x80000,
 			'PWM_BASE' : 0x30200,
+			'CHANNEL_DELAYS':0x10080,
 			'BM_ID' :   0x400000,
 			'BM_DATEVERSION' : 0x400004,
 			'BM_STATUS' : 0x400008,
@@ -61,7 +69,8 @@ class RADIANT:
 			'BM_SPIOUTMSB' :   0x400028,
 			'BM_I2CGPIO_BASE': 0x400040,
 			'BM_TRIGDAC_BASE': 0x400080,			
-			'BM_PEDESTAL':     0x4000E0			
+			'BM_PEDESTAL':     0x4000E0,		
+			'BM_SAMPLING_RATE' : 0x4000F0	
 			}
 
 	class DateVersion:
@@ -101,11 +110,20 @@ class RADIANT:
 			self.read = self.dev.read
 			self.write = self.dev.write
 			self.writeto = self.dev.writeto
-
+			# read sampling rate from board manager
+			self.SAMPLING_RATE=self.read(self.map['BM_SAMPLING_RATE'])
+		
 		# create the calibration interface. Starts off being unloaded.
 		# Will be loaded when a DNA's present.
 		# If we try to use without a DNA, use lab4generic_3G2.p's parameters.
-		self.calib = RadCalib(self, os.path.dirname(__file__)+"/lab4generic_3G2.p")
+		if self.SAMPLING_RATE==2400: 
+			def_filename="/lab4generic_2G4.p"
+			calib_dir='./calib_2400'
+		else: 
+			def_filename="/lab4generic_3G2.p" #3200
+			calib_dir='./calib_3200'
+
+		self.calib = RadCalib(self, os.path.dirname(__file__)+def_filename,calibPath=calib_dir)
 		self.jtag = RadJTAG(self)
 			
 		# create the CPLDs. These are really only for JTAG configuration.
@@ -142,6 +160,9 @@ class RADIANT:
 		
 		# SPI Flash
 		self.spi = SPI(self, self.map['SPIBASE'], initialize=False)
+
+		# Radiant Readout Delays
+		self.raddelays = RadDelays(self)
 
 	# Issues an ICAP reboot to the FPGA.
 	# Image 0 = golden (address = 0x0)

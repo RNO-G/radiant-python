@@ -21,6 +21,7 @@ class bf(object):
         return (self._d >> index) & 1
     
     def __setitem__(self,index,value):
+        value = int(value)
         if type(index) is slice:
             self.__setslice__(index.start, index.stop, value)
             return
