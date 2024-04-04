@@ -199,9 +199,13 @@ class LAB4_Controller:
                 phab = self.scan_value(scanNum, wr_edge) & 0x01
                 if self.invertSync:
                     phab = phab ^ 0x01
-                    
+                loop_count=0
                 while phab != match:
                     print("LAB%d wrong PHAB phase, resetting." % i)
+                    loop_count=loop_count+1
+                    if loop_count>9:
+                        err=True
+                        break
                     self.clr_phase(i)
                     phab = self.scan_value(scanNum, wr_edge) & 0x01
                     if self.invertSync:
