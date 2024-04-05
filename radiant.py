@@ -112,8 +112,8 @@ class RADIANT:
 			self.writeto = self.dev.writeto
 			# read sampling rate from board manager
 			self.SAMPLING_RATE=self.read(self.map['BM_SAMPLING_RATE'])
-            if not self.SAMPLING_RATE:
-                self.SAMPLING_RATE = 3200
+			if not self.SAMPLING_RATE:
+			    self.SAMPLING_RATE = 3200
 		
 		# create the calibration interface. Starts off being unloaded.
 		# Will be loaded when a DNA's present.
