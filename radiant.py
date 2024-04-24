@@ -101,6 +101,9 @@ class RADIANT:
             self.writeto = self.dev.writeto
             # read sampling rate from board manager
             self.SAMPLING_RATE = self.read(self.map['BM_SAMPLING_RATE'])
+            if not self.SAMPLING_RATE:
+                self.SAMPLING_RATE = 3200
+
             self.RADIANT_VERSION = self.read(self.map['BM_RADIANT_VERSION'])
             self.logger.info(f"This is a rev. {self.RADIANT_VERSION} RADIANT board with "
                              f"{self.SAMPLING_RATE} MHz sampling rate")
