@@ -55,16 +55,16 @@ def _analog_setup(radiant):
 
     # enable LAB4 + trigger and set LED red
     for i in range(6):
-        radiant.write(radiant.map['BM_I2CGPIO_BASE']+4*i, 0xF0)
+        radiant.write(radiant.map['BM_I2CGPIO_BASE'] + 4 * i, 0xF0)
 
     # set pedestal to 0.76V
-    radiant.pedestal(int((1100/3300)*4095))
+    radiant.pedestal(int((1100 / 3300) * 4095))
 
     # set all trigger biases to 1.2V
     # set all attenuators to 0 dB
     for ch in range(24):
         # trigger bias
-        radiant.write(radiant.map['BM_TRIGDAC_BASE']+4*ch, 2500)
+        radiant.write(radiant.map['BM_TRIGDAC_BASE'] + 4 * ch, 2500)
         # signal attenuator
         radiant.atten(ch, 0, trigger=False)
         # trigger attenuator
