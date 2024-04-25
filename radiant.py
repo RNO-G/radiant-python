@@ -360,7 +360,7 @@ class RADIANT:
 			print(dna) 
 		else:
 			print('') 
-        print("SAMPLING RATE: ", self.SAMPLING_RATE)
+		print("SAMPLING RATE: ", self.SAMPLING_RATE)
 		
 	def dna(self):
 		self.write(self.map['DNA'], 0x80000000)
