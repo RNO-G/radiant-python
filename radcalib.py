@@ -57,7 +57,7 @@ class RadCalib:
         namestr = path.join(self.calibPath, "cal_"+format(dna,'x')+".npy")
         if path.isfile(namestr):
             self.calib = {}
-            tmp = np.load(namestr)
+            tmp = np.load(namestr, allow_pickle=True)
             # This is probably insane: I should change
             # this to use JSON, but the problem is that
             # it'll convert the integer keys to strings,
