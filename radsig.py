@@ -42,6 +42,8 @@ class RadSig:
     # 3 : 600 MHz+
     # The pulse path doesn't go through the band filter (because I'm dumb, apparently, the 600 MHz+ path would've been fine)
     # so 'band' for it doesn't matter.
+    #
+    # 2023-08-30 Michael Korntheuer:  changed band addressing for RADIANT V3
     def signal(self, pulse=False, band=0):
         cur = self.dev.read(self.gpioaddr)
         cur &= 0xCF
@@ -49,25 +51,46 @@ class RadSig:
             # set bit 4 not bit 5
             cur |= 0x10
         else:
-            # now we *also* select band, so we kill bits 0/2/3
-            cur &= 0b11000010
-            # set bit 5 not bit 4
-            cur |= 0b00100000
-            if band == 0:
-                # CAL_FIL=00: set only bit 3
-                cur |= 0b00001000
-            elif band == 1:
-                # CAL_FIL=01: set bit 3 and 0
-                cur |= 0b00001001
-            elif band == 2:
-                # CAL_FIL=10: set only bit 2
-                cur |= 0b00000100
-            elif band == 3:
-                # CAL_FIL=11: set bit 2 and 0
-                cur |= 0b00000101
-            else:
-                print("Illegal band, must be 0/1/2/3")
-                return
+            if(self.dev.RADIANT_VERSION==2):
+                # now we *also* select band, so we kill bits 0/2/3
+                cur &= 0b11000010
+                # set bit 5 not bit 4
+                cur |= 0b00100000
+                if band == 0:
+                    # CAL_FIL=00: set only bit 3
+                    cur |= 0b00001000
+                elif band == 1:
+                    # CAL_FIL=01: set bit 3 and 0
+                    cur |= 0b00001001
+                elif band == 2:
+                    # CAL_FIL=10: set only bit 2
+                    cur |= 0b00000100
+                elif band == 3:
+                    # CAL_FIL=11: set bit 2 and 0
+                    cur |= 0b00000101
+                else:
+                    print("Illegal band, must be 0/1/2/3")
+                    return
+            else: #self.dev.RADIANT_VERSION==3
+                # now we *also* select band, so we kill bits 0/2/3/7
+                cur &= 0b01000010
+                # set bit 5 not bit 4
+                cur |= 0b00100000
+                if band == 0:
+                    # CAL_FIL=1000: set only bit 3
+                    cur |= 0b00001000
+                elif band == 1:
+                    # CAL_FIL=1110: set bit 7 and 3 and 0
+                    cur |= 0b10001001
+                elif band == 2:
+                    # CAL_FIL=0001: set only bit 2
+                    cur |= 0b00000100
+                elif band == 3:
+                    # CAL_FIL=111: set bit 7 and 2 and 0
+                    cur |= 0b10000101
+                else:
+                    print("Illegal band, must be 0/1/2/3")
+                    return
         print("write", bin(cur))
         self.dev.write(self.gpioaddr, cur)
             

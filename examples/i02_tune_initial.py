@@ -28,11 +28,17 @@ dna = dev.dna()
 dev.calib.load(dna)
 mask = 0xffffff 
 do_reset = False
+bad_labs=0x000000 #no bad to start :)
+
 if len(sys.argv) > 1: 
     mask = int(sys.argv[1],0)
 
 if len(sys.argv) > 2: 
     do_reset = bool(sys.argv[2]) 
+# things are weird, let's try a different tactic
+
+if len(sys.argv) > 3: 
+    bad_labs = int(sys.argv[3],0) 
 # things are weird, let's try a different tactic
 ok = []
 
@@ -59,8 +65,10 @@ for i in range(24):
         print("Skipping channel ",i)
         ok.append(TuneResult.SKIPPED)
         continue 
+    print()
 
-    tuneok = dev.calib.initialTune(i)
+    tuneok = dev.calib.initialTune(i,bad_LAB=bool(bad_labs & (1 <<i)))
+
     if tuneok:
         ok.append(TuneResult.SUCCESS)
     else:

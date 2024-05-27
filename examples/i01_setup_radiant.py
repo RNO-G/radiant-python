@@ -9,7 +9,7 @@ import subprocess
 
 path_to_radiant = path.dirname(radiant.__file__)
 path_to_radcpldprog = path.join(path_to_radiant, "examples/radcpldprog.py")
-path_to_radcplddata = path.join(path_to_radiant, "radiant_aux_v2.bit")
+path_to_radcplddata = path.join(path_to_radiant, "radiant_aux_v3.bit")
 
 print("!!!! About to program CPLDs.")
 try:
@@ -46,14 +46,17 @@ dev = RADIANT("/dev/ttyO5")
 dev.labc.stop()
 dev.dma.reset()
 dev.labc.reg_clr()
-
+print('load defaults')
 dev.labc.default(dev.labc.labAll)
+
+print('autmatch phab')
 dev.labc.automatch_phab(dev.labc.labAll)
 
 dev.calib.resetCalib()
 dna = dev.dna()
 dev.calib.load(dna)
-
+for i in range(24):
+    dev.labc.update(i)
 dev.labc.testpattern_mode(False)
 
 dev.calram.zero()

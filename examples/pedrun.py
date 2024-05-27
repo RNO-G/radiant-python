@@ -41,7 +41,7 @@ for i in range(512):
     dev.labc.force_trigger(block=True)
     dev.labc.force_trigger(block=True)
     dev.labc.force_trigger(block=True)
-    if i=511:
+    if i==511:
         end='\n'
     else:
         end='\r'

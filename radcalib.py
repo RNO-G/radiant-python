@@ -30,6 +30,8 @@ class RadCalib:
         self.channelMask = 0
         self.numLabs=numLabs
         self.calibPath = calibPath
+        self.nomSample=1/self.dev.SAMPLING_RATE*10**6 #416.6 as 2400MHz , 312.5ps for 3200MHz
+
         os.makedirs(calibPath, exist_ok=True) 
         # Build up a generic RADIANT: 24x generic parameters, all independent
         generic = pickle.load(open(genericFn, "rb"))
@@ -55,7 +57,7 @@ class RadCalib:
         namestr = path.join(self.calibPath, "cal_"+format(dna,'x')+".npy")
         if path.isfile(namestr):
             self.calib = {}
-            tmp = np.load(namestr)
+            tmp = np.load(namestr, allow_pickle=True)
             # This is probably insane: I should change
             # this to use JSON, but the problem is that
             # it'll convert the integer keys to strings,
@@ -84,12 +86,12 @@ class RadCalib:
         print("Updating pedestals...")
         self.dev.labc.stop()
         self.dev.calram.zero()
-        self.dev.calram.mode(self.dev.calram.CalMode.PEDESTAL)        
+        self.dev.calram.mode(self.dev.calram.CalMode.PEDESTAL)
         self.dev.labc.start()
         # Build up 512-sample sum of pedestals. The 512 here is magic,
         # it's the amount needed for the zerocrossing
         for i in range(4*self.trigsPerRoll):
-            self.dev.labc.force_trigger(block=True, numTrig=128, safe=False)
+            self.dev.labc.force_trigger(block=True, numTrig=128, safe=True)
         self.dev.labc.stop()
         # peds are updated, dump them
         print("Fetching pedestals...")
@@ -106,23 +108,89 @@ class RadCalib:
         self.calib['pedestals'] = rawped.reshape(24, 4096)
         print("Update complete")
 
-    # assumes *nothing* other than the LAB4's been defaulted and testpatern mode is off
-    # The initial tune finds the trim feedback and shifts all the trims to ensure
-    # the slow sample is tunable
-    def initialTune(self, lab, maxTries=50, freq=510,  tryReg3ForFailedDLL=True):
-        # Start off by dead-reckoning the initial target
-        # Start off by trying to use the DLL.
-        if self.calib['specifics'][lab][2] == 1024:
-            print("Defaults say to NOT use the DLL.")
-            seamTuneNum = 3
-        else:
-            print("Defaults say to use the DLL.")
-            seamTuneNum = 11
+
+    def get_tune_params(self):
+        #if sampling rate ==2400
+        seam_slow_factor=1.03 #1.03
+        seam_fast_factor=0.97 #0.97
         
+        slow_slow_factor=1.03 #1.01
+        slow_fast_factor=0.97 #0.95
 
-        initialState = self.calib['specifics'][lab] 
-        self.dev.labc.update(lab)  # make sure we are using the initial state
+        mean_slow_factor=1.0005 #0.1% of 416.66 means this ends when the mean is ~0.4ps off of ideal. seam sample should close enough then.
+        mean_fast_factor=0.999
 
+        if(self.dev.SAMPLING_RATE==3200): #help tuning a bit
+            seam_slow_factor=1.06
+            seam_fast_factor=0.94
+            
+            slow_slow_factor=1.03
+            slow_fast_factor=0.93 #confusing IK but it's slow sample. make is slightly fast
+
+            mean_slow_factor=1.003 #0.1% of 416.66 means this ends when the mean is ~0.4ps off of ideal. seam sample should close enough then.
+            mean_fast_factor=0.997
+
+        return seam_slow_factor,seam_fast_factor,slow_slow_factor,slow_fast_factor,mean_slow_factor,mean_fast_factor
+    
+    def adjust_seam(self,lab,seamTuneNum,seamSample,mode='seam'):
+        seamTuneNum=int(seamTuneNum)
+        # Build the delta. This is totally hacked together.
+        # Decrease if too fast, increase if too slow.
+        # Change by 3 if it's within 50, change by 7 if it's between 50-100, 
+        # change by 15 otherwise. Convergence here is slow, but we're trying to 
+        # avoid bouncing, and we're also trying to avoid the negative case.
+        diff = np.abs(seamSample - self.nomSample)
+        s_diff=seamSample-self.nomSample
+        if seamTuneNum == 3: 
+            delta=  1
+        else:
+            delta = 1 #was 3, takes longer but oh well. better granularity when we're close
+            #seam tuning
+            if mode == 'seam' and diff > 50:
+                delta += random.randint(1,3) #randomness back in
+            if mode =='seam' and diff > 100:
+                delta += random.randint(2,6) #max step size of 10. don't want to jump past optimal point too much
+
+            #mean tuning. diff is sizably different from the seam diff
+            if mode=='mean' and diff > 0.3:
+                delta += 3
+            if mode=='mean' and diff > 0.6:
+                delta += 6
+
+            #switch signs of delta if using VadjN or if we need to change directions
+            if seamTuneNum ==3: 
+                delta = -1*delta
+            if mode=='seam' and s_diff<0:
+                delta=-1*delta
+            if mode=='mean' and s_diff>0:
+                delta=-1*delta
+
+        cur = self.calib['specifics'][lab][seamTuneNum]
+        newVal = cur+delta; 
+        #if newVal < (self.nomSample*1.28): 
+        #    print("hmm feedback got to small. let's try something random!")
+        #    newVal = random.randrange(800,1200) 
+        #    time.sleep(2); 
+        print("Seam sample: Feedback LAB%d (%f): %d -> %d (register %d)" % (lab, seamSample, cur, newVal, seamTuneNum))
+        self.calib['specifics'][lab][seamTuneNum] = newVal
+
+    def adjust_slow(self,slowSample,lab,slow_slow_factor,slow_fast_factor,slow_step):
+        if slowSample> (self.nomSample*slow_slow_factor):
+            slow_step=np.abs(slow_step)
+            print('need to speed up slow sample')
+        elif slowSample<(self.nomSample*slow_fast_factor):
+            slow_step=-slow_step
+            print('need to slow down slow sample')
+        oldavg = 0
+        for i in range(257, 383):
+            old = self.calib['specifics'][lab][i]
+            oldavg += old
+            self.calib['specifics'][lab][i] = old + slow_step
+        oldavg = oldavg/126
+        print("Slow sample: LAB%d (%f): %d -> %d" % (lab, slowSample, oldavg, oldavg + slow_step))
+        oldavg = oldavg + slow_step
+
+    def find_sspin(self,lab,maxTries,tryReg3ForFailedDLL,initialState):
         self.dev.monSelect(lab)
         self.dev.labc.set_tmon(lab, self.dev.labc.tmon['SSPin'])
         # SSPin is *supposed* to be around 600 samples long in an ideal world,
@@ -155,8 +223,10 @@ class RadCalib:
                 seamTuneNum =3 
                 maxTries*=3  
                 print("Switching to VadjN")
-        while width > 1000 and curTry < maxTries:
+
+        while width > 1300 and curTry < maxTries: #below 1000 for 3.2GHz, maybe 1000*1.33=1300 for 2.4GHz
             newAvg = 0
+            print('raising avg sample trim by 25')
             for i in range(257, 383):
                 newval = self.calib['specifics'][lab][i]
                 self.calib['specifics'][lab][i] = newval + 25
@@ -173,6 +243,30 @@ class RadCalib:
            self.calib['specifics'][lab] = initialState
            self.dev.labc.update(lab)
            return False
+        return curTry
+    # assumes *nothing* other than the LAB4's been defaulted and testpatern mode is off
+    # The initial tune finds the trim feedback and shifts all the trims to ensure
+    # the slow sample is tunable
+
+    def initialTune(self, lab, maxTries=50, freq=510,  tryReg3ForFailedDLL=True, verbose=False,bad_LAB=False):
+        
+        # Start off by dead-reckoning the initial target
+        # Start off by trying to use the DLL.
+        if self.calib['specifics'][lab][2] == 1024:
+            print("Defaults say to NOT use the DLL.")
+            seamTuneNum = 3
+        else:
+            print("Defaults say to use the DLL.")
+            seamTuneNum = 11
+        
+
+        initialState = self.calib['specifics'][lab] 
+        self.dev.labc.update(lab)  # make sure we are using the initial state
+        #balance sstin/sstout widths
+        self.calib['specifics'][lab][8]=self.dev.labc.autotune_vadjp(lab,initial=self.calib['specifics'][lab][8]) #this guy can break things but might be useful to keep
+        self.dev.labc.update(lab)  # make sure we are using the initial state
+        
+        curTry=self.find_sspin(lab,maxTries,tryReg3ForFailedDLL,initialState)
         # Put its quad into calibration mode
         self.dev.calSelect(int(lab/4))
         self.dev.radsig.enable(False)
@@ -186,110 +280,290 @@ class RadCalib:
 
         t = self.getTimeRun(freq*1e6, verbose=False)
         
-        print("Initial seam/slow sample timing:", t[lab][0], t[lab][127])
+        print("Initial seam/slow sample timing: %0.2f %0.2f" % (t[lab][0], t[lab][127]))
         # Check the times to see if we're *so* far off that
         # our measured seam time might actually be *negative*.
         # Note that even if it isn't, just declaring that it's
         # negative is fine, the result is the same. The
         # times that come from getTimeRun *cannot* be negative.
-        if np.sum(t[lab][1:128]) > 39900:
-            print("Feedback LAB%d way off (%f): %d -> %d" % (lab, 40000-np.sum(t[lab][1:128]), t[lab][0], -1*t[lab][0]))
+        if np.sum(t[lab][1:128]) > (self.nomSample*127.68):
+            print("Feedback LAB%d way off (%f): %d -> %d" % (lab, (self.nomSample*128)-np.sum(t[lab][1:128]), t[lab][0], -1*t[lab][0]))
             t[lab][0] = -1*t[lab][0]
         # copied from surf_daq's tune loop. Note that our times are
         # shifted one forward, but the trims are *not*. So in our
         # case the times and the trims are the same!
+        # try to get near the right mean sample timing
+
         seamSample = t[lab][0]
+        #seamSample = np.mean(t[lab][1:127])
+
         slowSample = t[lab][127]
         # get what the initial average is
         oldavg = 0
-        for i in range(257, 383):
+        for i in range(257, 383): #only changes the middle samples... hence not 128
             oldavg += self.calib['specifics'][lab][i]
         oldavg = oldavg/126
         print("Starting average trim:", oldavg)
         curTry = 0
-        while slowSample > 290 or seamSample > 350 or (seamSample < 290 and oldavg < 2400):
-            if curTry >= maxTries:
+        do_quit=False
+        # No idea if this second condition (oldavg < 2400) will work with different sampling rates!!
+        # I doubt it!!
+
+        seam_slow_factor,seam_fast_factor,slow_slow_factor,slow_fast_factor,mean_slow_factor,mean_fast_factor=self.get_tune_params()
+        slow_step=10 #was 25
+        print('\nfirst find mean sample so timing is close')
+        last_seam=seamSample
+        meanSample=np.mean(t[lab][1:126])
+ 
+
+        while(meanSample>self.nomSample*mean_slow_factor or meanSample<self.nomSample*mean_fast_factor):
+            self.adjust_seam(lab,seamTuneNum,meanSample,mode='mean')
+                    # now update
+            print("Updating...", end='', flush=True)
+            self.dev.labc.update(lab,verbose=verbose)
+            print("done")
+            t = self.getTimeRun(freq*1e6, verbose=False)
+            print("Seam/slow sample timing now: %0.2f %0.2f" % (t[lab][0], t[lab][127]))
+            print("mean of middle sample timings now: %0.2f" % np.mean(t[lab][1:127]))
+            meanSample=np.mean(t[lab][1:126])
+            if curTry == maxTries:
                 print("initial tune failed! Restoring initial state.")
                 self.calib['specifics'][lab] = initialState
                 self.dev.labc.update(lab)
                 return False
-            # Fix the seam if it's gone off too much.
-            if seamSample < 290 or seamSample > 350:
-                # Build the delta. This is totally hacked together.
-                # Decrease if too fast, increase if too slow.
-                # Change by 3 if it's within 50, change by 7 if it's between 50-100, 
-                # change by 15 otherwise. Convergence here is slow, but we're trying to 
-                # avoid bouncing, and we're also trying to avoid the negative case.
-                diff = np.abs(seamSample - 312.5)
-                if seamTuneNum == 3: 
-                    delta=1
-                else:
-                    delta = 3
-                    if diff > 50:
-                        delta += random.randint(2,6)
-                    if diff > 100:
-                        delta += random.randint(4,12)
-                    if seamSample < 290:
-                        delta = -1*delta
-                    if seamTuneNum ==3: 
-                        delta = -1*delta
-                cur = self.calib['specifics'][lab][seamTuneNum]
-                newVal = cur+delta; 
-                if newVal < 400: 
-                    print("hmm feedback got to small. let's try something random!")
-                    newVal = random.randrange(800,1200) 
-                    time.sleep(2); 
-                print("Feedback LAB%d (%f): %d -> %d (register %d)" % (lab, seamSample, cur, newVal, seamTuneNum))
-                self.calib['specifics'][lab][seamTuneNum] = newVal
-            elif slowSample > 290 and oldavg <2400:
-                # We ONLY DO THIS if the seam sample's close.
-                # This is because the slow sample changes with the seam timing like
-                # everything else (actually a little more)
-                #
-                # So now, we're trying to find a *global* starting point where
-                # the slow sample is *too fast*. Because slowing it down is easy!
-                # So to do that, we slow everyone else down. Doing that means the
-                # the DLL portion speeds up, so the slow sample speeds up as well.
-                # This slows down trims 1->126 by adding 25 to them.
-                # Remember trim 127 is the slow sample, and trim 0 is the multichannel clock alignment trim.
-                
-                # Trim updating is a pain, sigh.
-                oldavg = 0
-                for i in range(257, 383):
-                    old = self.calib['specifics'][lab][i]
-                    oldavg += old                    
-                    self.calib['specifics'][lab][i] = old + 25
-                oldavg = oldavg/126
-                print("Slowing early samples: LAB%d (%f): %d -> %d" % (lab, slowSample, oldavg, oldavg + 25))
-                oldavg = oldavg + 25
-            elif slowSample < 250 and oldavg >1800:
-               # Trim updating is a pain, sigh.
-                oldavg = 0
-                for i in range(257, 383):
-                    old = self.calib['specifics'][lab][i]
-                    oldavg += old                    
-                    self.calib['specifics'][lab][i] = old - 25
-                oldavg = oldavg/126
-                print("Speeding early samples: LAB%d (%f): %d -> %d" % (lab, slowSample, oldavg, oldavg - 25))
-                oldavg = oldavg - 25
-  
+            curTry=curTry+1
+            
+        t = self.getTimeRun(freq*1e6, verbose=False)
+        seamSample = t[lab][0]
+        #seamSample = np.mean(t[lab][1:127]) #hack for bad seam on labs. do this and change mode to mean below here
+        slowSample = t[lab][127]
+        
+        bouncing=0 #dumb way to check if we're boucing around the nominal range set by slow and fast factors
+        #if it bounces then adjust slow, which is likely off, then continue with seam (mean)
+
+        tune_mode='seam'#default
+        if bad_LAB==True:
+            tune_mode='mean'
+            seam_slow_factor=mean_slow_factor
+            seam_fast_factor=mean_fast_factor
+            seamSample=np.mean(t[lab][1:127]) #trick it to be the right thing. I should probably just pass both to adjust seam
+            print('using the mean sample instead')
+
+        samples=np.arange(0,127,1)
+        sam_2_reg=256
+        spread_target=10
+        spead=np.std(t[lab][1:127])
+        rolling_means=[]
+        for i in range(128):
+            rolling_means.append([])
+        rolling_seam=t[lab][0]
+        rolling_slow=t[lab][127]
+        rolling_spread=20
+        spread_target=5
+        count=0
+        num_outside=128
+        rolling_samples=np.zeros(128)
+        print('\nnow tune seam and slow samples')
+        while count<5 or rolling_slow < (self.nomSample*slow_fast_factor) or rolling_slow>(self.nomSample*slow_slow_factor) or rolling_seam > (self.nomSample*seam_slow_factor) or rolling_seam < (self.nomSample*seam_fast_factor):
+            if curTry >= maxTries:
+                print("HIT MAX TRIES! Initial tune failed! Restoring initial state.")
+                self.calib['specifics'][lab] = initialState
+                self.dev.labc.update(lab)
+                return False
+
+            if (rolling_seam < (self.nomSample*seam_fast_factor) or rolling_seam > (self.nomSample*seam_slow_factor)) and bouncing<3:
+                print('----------- SEAM off ----------')
+                self.adjust_seam(lab,seamTuneNum,seamSample,mode=tune_mode)
+                if last_seam>(self.nomSample*seam_slow_factor) and seamSample<(self.nomSample*seam_fast_factor):
+                    bouncing+=1
+
+                elif last_seam<(self.nomSample*seam_fast_factor) and seamSample>(self.nomSample*seam_slow_factor):
+                    bouncing+=1
+                last_seam=seamSample
+                if bouncing>3: print("bouncing")
+
+            elif ((rolling_slow > (self.nomSample*slow_slow_factor) or rolling_slow < (self.nomSample*slow_fast_factor))):
+                print('----------- SLOW off ----------')
+
+                self.adjust_slow(slowSample,lab,slow_slow_factor,slow_fast_factor,slow_step)
+                bouncing=0
+            elif False and num_outside>5:
+                print('---------- SPREAD off ---------')
+                bigs=np.argsort(np.abs(rolling_samples-self.nomSample))
+                largest1=bigs[128-1:128:1]
+                print('working on these ',largest1,rolling_samples[largest5])
+                for sample in largest1:
+                    reg=sample+sam_2_reg
+                    if rolling_samples[sample]>self.nomSample: 
+                        self.calib['specifics'][lab][reg]=self.calib['specifics'][lab][reg]-10
+                    elif rolling_samples[sample]<self.nomSample: 
+                        self.calib['specifics'][lab][reg]=self.calib['specifics'][lab][reg]+10
+                    else:
+                        pass #do nothing. this sample is ok
+
+
+
+            #old elif slowSample < (self.nomSample*0.8) and oldavg >1800:
+            #old elif slowSample < (self.nomSample*0.9) and oldavg >1800:
+            doadd=False
+            dopop=False
+            if count<=5:
+                doadd=True
+            if count>5:
+                dopop=True
+
+            for i in range(128):
+                if doadd:rolling_means[i].append(t[lab][i])
+                if dopop:
+                    rolling_means[i].pop(0)
+                    rolling_means[i].append(t[lab][i])
+            rolling_samples=np.mean(rolling_means,axis=1)
+            rolling_spread=np.std(rolling_samples)
+            num_outside=len(np.where(rolling_samples>self.nomSample*1.02)[0]) + len(np.where(rolling_samples<self.nomSample*0.98)[0])
+            #rolling_spread=1
+            print('num outside ',num_outside)
+            #print(rolling_samples)
             # now update
             print("Updating...", end='', flush=True)
-            self.dev.labc.update(lab)
+            self.dev.labc.update(lab,verbose=verbose)
             print("done")
             # fetch times again
             t = self.getTimeRun(freq*1e6, verbose=False)
-            print("Seam/slow sample timing now:", t[lab][0], t[lab][127])
-            if np.sum(t[lab][1:128]) > 39900:
-                print("Feedback LAB%d way off (%f): %d -> %d" % (lab, 40000-np.sum(t[lab][1:128]), t[lab][0], -1*t[lab][0]))
+            print("Seam/slow/mean sample timing now: %0.2f %0.2f %0.2f" %( t[lab][0], t[lab][127],np.mean(t[lab][1:128])))
+            #print("mean of middle sample timings now: %0.2f" % np.mean(t[lab][1:127]))
+
+            if np.sum(t[lab][1:128]) > (self.nomSample*127.68):
+                print("Feedback LAB%d way off (%f): %d -> %d" % (lab, (self.nomSample*128)-np.sum(t[lab][1:128]), t[lab][0], -1*t[lab][0]))
                 t[lab][0] = -1*t[lab][0]
-            seamSample = t[lab][0]
+
+            seamSample=t[lab][0]
+            rolling_seam=np.mean(rolling_means[0])
+            rolling_slow=np.mean(rolling_means[127])
+            #seamSample = np.mean(t[lab][1:127]) #make it the middle samples bc reasons
             slowSample = t[lab][127]
+            #spread=np.std(t[lab][1:127])
+            print(f"rolling seam {rolling_seam:0.2f}, rolling slow {rolling_slow:0.2f}, rolling spread {rolling_spread:0.2f}")
+            if tune_mode=='mean':
+                seamSample=np.mean(t[lab][1:127]) #trick it again :)
             curTry = curTry + 1
-        print("Ending seam sample :", t[lab][0],"feedback",self.calib['specifics'][lab][seamTuneNum],"using register ",seamTuneNum)
-        print("Ending slow sample :", t[lab][127],"average earlier trims", oldavg)
-        return True
+            count=count+1
+            if do_quit: 
+                print('')
+                break
+        print("Ending seam sample : %0.2f feedback %0.2f using register %i" %(t[lab][0],self.calib['specifics'][lab][seamTuneNum],seamTuneNum))
+        print("Ending slow sample : %0.2f average earlier trims %0.2f" %( t[lab][127], oldavg))
+        print("Timing through all samples : %0.", np.sum(t[lab][0:128])/1000," ns... only ",53.333-np.sum(t[lab][0:128])/1000, " ns off")
         
+        #turn these off so they don't run in the background
+        self.dev.calSelect(int(lab/4))
+        self.dev.radsig.enable(False)
+        return True
+    
+    #for this script we assume labs are on and have passed the initial tune
+    #each sample now fits into a distribution around the ideal sample timing, where the mean
+    #should be the ideal. so on the first iteration I will try to "compress" the distribution
+    #tighter around the ideal sample time. Assuming if I push the slow fast and the fast slow
+    #it shouldn't mess with the overall timing too much
+    def tune_samples(self,lab,freq=510,verbose=False):
+        
+        print('\nTrying to tune individual samples')
+        initialState = self.calib['specifics'][lab] 
+        self.dev.labc.update(lab)  # make sure we are using the initial state
+        self.dev.calSelect(int(lab/4))
+        self.dev.radsig.enable(False)
+        self.dev.radsig.signal(pulse=False, band = (2 if freq > 100 else 0))
+        # update the pedestals
+        self.updatePedestals()
+        # turn on the sine wave
+        self.dev.radsig.enable(True)
+        self.dev.radsig.setFrequency(freq)
+        # get the initial time loop
+
+        t = self.getTimeRun(freq*1e6, verbose=False)
+
+        oldavg = 0
+        for i in range(257, 383): #only changes the middle samples... hence not 128
+            oldavg += self.calib['specifics'][lab][i]
+        print(oldavg)
+        #to slow down a samlpe we sub tract from the spec. to speed up we add to it
+        #LOOP HERE
+        spread=np.std(t[lab][1:127])
+        print(spread)
+        mean_sample=np.mean(t[lab][1:127])
+        spread_success_range=10
+        ind_sample_dev=5
+        adjust=np.zeros(126)
+        tries=0
+        any_bigger=len(np.where(np.abs(t[lab]-self.nomSample)>10)[0])
+        print('how many outside range',any_bigger)
+       	slowest_sample=np.argmax(t[lab][1:127])+1
+        fastest_sample=np.argmin(t[lab][1:127])+1
+        print('fastest ',fastest_sample,' and slowest ',slowest_sample)
+        print('slowest is ',t[lab][slowest_sample]-self.nomSample,' too slow')
+        print('fastest is ',t[lab][fastest_sample]-self.nomSample,' too fast')
+        sam_2_reg=256
+        '''
+        while(t[lab][slowest_sample]-self.nomSample>10):
+            self.calib['specifics'][lab][slowest_sample+sam_2_reg]=self.calib['specifics'][lab][slowest_sample+sam_2_reg]-10
+            self.dev.labc.update(lab)
+            t=self.getTimeRun(freq*1e6,verbose=False)
+            print('reg ',self.calib['specifics'][lab][slowest_sample+sam_2_reg])
+            print('sample time %0.2f'%t[lab][slowest_sample])
+        exit()
+        '''
+        samples=np.arange(0,128,1)
+        biggest=np.argmax(t[lab][:])
+        #while(spread>spread_success_range or any_bigger>10):
+        while(True):
+            print('\n',tries)
+            if tries>50:
+                print('too long')
+                self.calib['specifics'][lab] = initialState
+                self.dev.labc.update(lab)
+                return False
+
+            #adjust labs here
+            for sample in samples:
+                if sample!=biggest: continue
+                reg=sample+sam_2_reg
+                print(self.calib['specifics'][lab][reg])
+                if t[lab][sample]>self.nomSample+10: 
+                    print('speed up')
+                    self.calib['specifics'][lab][reg]=self.calib['specifics'][lab][reg]-10
+                elif t[lab][sample]<self.nomSample-10: 
+                    print('slow down')
+                    self.calib['specifics'][lab][reg]=self.calib['specifics'][lab][reg]+10
+                else:
+                    pass #do nothing. this sample is ok
+            
+            #print("Updating...", end='', flush=True)
+            self.dev.labc.update(lab,verbose=verbose)
+            #print("done")
+            print(t[lab][biggest-1],t[lab][biggest],t[lab][biggest+1],'ps')
+            t = self.getTimeRun(freq*1e6, verbose=False)
+            spread=np.std(t[lab][1:127])
+            mean_sample=np.mean(t[lab][1:127])
+            any_bigger=len(np.where(np.abs(t[lab]-self.nomSample)>10)[0])
+            print('mean and std',mean_sample,spread)
+            #print(any_bigger,' samples outside range')
+            tries=tries+1
+
+
+        print("Updating...", end='', flush=True)
+        self.dev.labc.update(lab,verbose=verbose)
+        print("done")
+        print('ending values')
+        spread=np.std(t[lab][1:127])
+        mean_sample=np.mean(t[lab][1:127])
+        print('seam, slow, mean, spread, proptime (ps)',t[lab][0],t[lab][127],mean_sample,spread,np.sum(t[lab][:]))
+        newavg = 0
+        for i in range(257, 383): #only changes the middle samples... hence not 128
+            newavg += self.calib['specifics'][lab][i]
+        print(newavg)
+        self.dev.calSelect(int(lab/4))
+        self.dev.radsig.enable(False)
+        return True
+
     # Gets times from a zero-crossing run. Assumes pedestals loaded, sine wave running.
     # Each run here *should* get us around 1960 zero crossings, which means
     # the precision of each is roughly 7 picoseconds, obviously reducing in quadrature
@@ -386,3 +660,4 @@ class RadCalib:
         timeByWindow.transpose()[0] /= rescale
         # and we're done
         return timeByWindow
+    
