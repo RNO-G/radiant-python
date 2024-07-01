@@ -38,12 +38,6 @@ class RadCalib:
         with open(genericFn, "rb") as f:
             self.generic = pickle.load(f)
 
-        # reset the calib
-        # self.resetCalib()
-
-        # load calibration, if not exists reset calibration
-        # self.load(self.dev.uid())
-
     def resetCalib(self):
         self.logger.info("Reset calibration ...")
         self.calib = {}
