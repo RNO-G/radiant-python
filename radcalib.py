@@ -54,6 +54,7 @@ class RadCalib:
         calib = dict()
         for ch in range(self.numLabs):
             calib[ch] = self.lab4_specifics(ch)
+            print(f"Ch{ch}: {calib[ch]}")
 
         with open(namestr, "w") as f:
             json.dump(calib, f)
@@ -74,6 +75,7 @@ class RadCalib:
 
             for ch in calib.keys():
                 for key in calib[ch].keys():
+                    print(f"CH{ch}: {key} {calib[ch][key]}")
                     self.lab4_specifics_set(int(ch), int(key), calib[ch][key])
 
         else:
