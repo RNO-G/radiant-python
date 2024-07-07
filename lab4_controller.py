@@ -245,7 +245,7 @@ class LAB4_Controller:
                     self.logger.warning(f"LAB{lab}: No rising edge on VadjP: looks stuck. "
                                         "Reset LAB and run automatch_phab")
                     #vadjp+=idelta
-                    self.dev.calib.lab4_resetSpecifics(lab)
+                    self.dev.calib.lab4_reset_specifics(lab)
                     self.dev.labc.default(lab)
                     self.dev.labc.automatch_phab(lab)
 

@@ -44,7 +44,7 @@ class RadCalib:
         self.calib['pedestals'] = None
         self.calib['specifics'] = [None] * self.numLabs
         for ch in range(self.numLabs):
-            self.lab4_resetSpecifics(ch)
+            self.lab4_reset_specifics(ch)
 
     # Save our calibration.
     def save(self, uid):
@@ -54,7 +54,8 @@ class RadCalib:
         calib = dict()
         for ch in range(self.numLabs):
             calib[ch] = self.lab4_specifics(ch)
-            print(f"Ch{ch}: {calib[ch]}")
+            tmp = {key: calib[ch][key] for key in [2, 3, 8, 10, 11, 256, 257, 383]}
+            print(f"Ch{ch}: {tmp}")
 
         with open(namestr, "w") as f:
             json.dump(calib, f)
@@ -73,9 +74,10 @@ class RadCalib:
             with open(namestr, "r") as f:
                 calib = json.load(f)
 
-            for ch in calib.keys():
-                for key in calib[ch].keys():
-                    print(f"CH{ch}: {key} {calib[ch][key]}")
+            for ch in calib:
+                tmp = {key: calib[ch][key] for key in [2, 3, 8, 10, 11, 256, 257, 383]}
+                print(f"CH{ch}: {tmp}")
+                for key in calib[ch]:
                     self.lab4_specifics_set(int(ch), int(key), calib[ch][key])
 
         else:
@@ -96,7 +98,7 @@ class RadCalib:
     def lab4_specifics_set(self, lab, key, value):
         self.calib['specifics'][lab][key] = value
 
-    def lab4_resetSpecifics(self, lab):
+    def lab4_reset_specifics(self, lab):
         self.calib['specifics'][lab] = self.generic.copy()
 
     # Updates pedestals, both locally
