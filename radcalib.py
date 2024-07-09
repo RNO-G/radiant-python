@@ -91,6 +91,9 @@ class RadCalib:
         else:
             self.logger.warning("Updating Lab4Ds impossible, the Lab4D_Controller is not initialized!")
 
+        self.logger.info("... updating Lab4Ds finished!")
+
+
     # Gets the LAB4-specific parameters for each LAB.
     def lab4_specifics(self, lab):
         return self.calib['specifics'][lab]
