@@ -24,12 +24,16 @@ class RadCalib:
     # do something at init
     # trigsPerRoll is the number of triggers I have to generate
     # to get through a full 4096 samples
-    def __init__(self, dev, genericFn, numLabs=24, trigsPerRoll=4, channelMask=0, calibPath="./calib", logger=logging.getLogger('root')):
+    def __init__(self, dev, genericFn, numLabs=24, trigsPerRoll=4, channelMask=0,
+                 calibPath=None, logger=logging.getLogger('root')):
         self.dev = dev
         self.trigsPerRoll = 4
         self.channelMask = 0
         self.numLabs = numLabs
         self.logger = logger
+
+        if calibPath is None:
+            calibPath = "/home/rno-g/stationrc/calib"
 
         self.calibPath = calibPath
         os.makedirs(calibPath, exist_ok=True)
