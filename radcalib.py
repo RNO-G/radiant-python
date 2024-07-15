@@ -38,9 +38,18 @@ class RadCalib:
         self.calibPath = calibPath
         os.makedirs(calibPath, exist_ok=True)
 
+        self.__genericFn = genericFn
+        self._generic = None
+
+    @property
+    def generic(self):
         # Build up a generic RADIANT: 24x generic parameters, all independent
-        with open(genericFn, "rb") as f:
-            self.generic = pickle.load(f)
+        if self._generic is None:
+            with open(self.__genericFn, "rb") as f:
+                self._generic = pickle.load(f)
+
+        return self._generic
+
 
     def resetCalib(self):
         self.logger.info("Reset calibration ...")
