@@ -41,6 +41,8 @@ class RadCalib:
         self.__genericFn = genericFn
         self._generic = None
 
+        self.calib = {}
+
     @property
     def generic(self):
         # Build up a generic RADIANT: 24x generic parameters, all independent
