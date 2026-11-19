@@ -103,20 +103,29 @@ def lab4_setup(radiant, labs=None, pedestals=True):
     radiant.labc.stop()
     radiant.dma.reset()
 
-    # Reload the calibration: `default()` writes it to the LABs. `load()` writes it
-    # to all LABs, hence before `reg_clr()`.
-    radiant.calib.resetCalib()
-    radiant.calib.load(radiant.uid())
+    if labs is not None:
+        # `default()` needs the calibration in memory. `load()` writes it to all LABs,
+        # hence before `reg_clr()`.
+        radiant.calib.resetCalib()
+        radiant.calib.load(radiant.uid())
 
     radiant.labc.reg_clr()
 
     if labs is None:
         radiant.labc.default(radiant.labc.labAll)
         radiant.labc.automatch_phab(radiant.labc.labAll)
+
+        radiant.calib.resetCalib()
+        uid = radiant.uid()
+        radiant.calib.load(uid)
     else:
         for lab in labs:
             radiant.labc.default(lab)
             radiant.labc.automatch_phab(lab)
+
+        # Like `load()` in the full setup: rewrite the calibration (`automatch_phab` may change it)
+        for lab in labs:
+            radiant.labc.update(lab)
 
     radiant.labc.testpattern_mode(False)
 
