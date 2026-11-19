@@ -87,24 +87,42 @@ def program_cplds(radiant, version=3):
             raise TimeoutError()
 
 
-def lab4_setup(radiant):
-    """ Initialize the LAB4Ds (defaults, phase matching, calibration) and take pedestals. """
+def lab4_setup(radiant, labs=None, pedestals=True):
+    """
+    Initialize the LAB4Ds (defaults, phase matching, calibration) and take pedestals.
+
+    Parameters
+    ----------
+    labs: list of int, optional (Default: None)
+        If given, only initialize these LABs (e.g., to heat up the RADIANT with limited power).
+        All other LABs stay cleared. The calibration is not reloaded (uses the one in memory)
+        and no pedestals are taken: the board is not ready for data taking.
+    pedestals: bool, optional (Default: True)
+        Take pedestals at the end (only if `labs` is None).
+    """
     radiant.labc.stop()
     radiant.dma.reset()
     radiant.labc.reg_clr()
 
-    radiant.labc.default(radiant.labc.labAll)
-    radiant.labc.automatch_phab(radiant.labc.labAll)
+    if labs is None:
+        radiant.labc.default(radiant.labc.labAll)
+        radiant.labc.automatch_phab(radiant.labc.labAll)
 
-    radiant.calib.resetCalib()
-    uid = radiant.uid()
-    radiant.calib.load(uid)
+        radiant.calib.resetCalib()
+        uid = radiant.uid()
+        radiant.calib.load(uid)
+    else:
+        for lab in labs:
+            radiant.labc.default(lab)
+            radiant.labc.automatch_phab(lab)
 
     radiant.labc.testpattern_mode(False)
 
     radiant.calram.zero()
     radiant.calram.mode(radiant.calram.CalMode.NONE)
-    radiant.calib.updatePedestals()
+
+    if pedestals and labs is None:
+        radiant.calib.updatePedestals()
 
 
 def setup_radiant(station, version=3):
