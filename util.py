@@ -103,27 +103,26 @@ def lab4_setup(radiant, labs=None, pedestals=True):
     radiant.labc.stop()
     radiant.dma.reset()
 
-    if labs is not None:
-        # `default()` needs the calibration in memory. `load()` writes it to all LABs,
-        # hence before `reg_clr()`.
+    # `default()` writes the calibration in memory to the LABs; it is empty after the RADIANT
+    # object was (re)created. The subset always takes it fresh from file. `load()` writes
+    # it to all LABs, hence before `reg_clr()`.
+    if labs is not None or "specifics" not in radiant.calib.calib:
         radiant.calib.resetCalib()
         radiant.calib.load(radiant.uid())
 
     radiant.labc.reg_clr()
 
+    lab_list = [radiant.labc.labAll] if labs is None else labs
+    for lab in lab_list:
+        radiant.labc.default(lab)
+    for lab in lab_list:
+        radiant.labc.automatch_phab(lab)
+
+    # `automatch_phab` may set register 8 to its generic value: write the calibration again
     if labs is None:
-        radiant.labc.default(radiant.labc.labAll)
-        radiant.labc.automatch_phab(radiant.labc.labAll)
-
         radiant.calib.resetCalib()
-        uid = radiant.uid()
-        radiant.calib.load(uid)
+        radiant.calib.load(radiant.uid())
     else:
-        for lab in labs:
-            radiant.labc.default(lab)
-            radiant.labc.automatch_phab(lab)
-
-        # Like `load()` in the full setup: rewrite the calibration (`automatch_phab` may change it)
         for lab in labs:
             radiant.labc.update(lab)
 
