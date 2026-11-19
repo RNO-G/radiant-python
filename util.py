@@ -110,13 +110,13 @@ def lab4_setup(radiant, labs=None, pedestals=True):
     radiant.calib.load(radiant.uid(), update_labs=False)
 
     lab_list = range(radiant.labc.numLabs) if labs is None else labs
+    # Separate loops: kickstart all DLLs first (in `default()`) so they have time to settle
+    # before `automatch_phab` checks the delay lines (as in `tune.py`).
     for lab in lab_list:
         radiant.labc.default(lab)
     for lab in lab_list:
         radiant.labc.automatch_phab(lab)
-
-    # `automatch_phab` may set register 8 to its generic value: write the calibration again
-    for lab in lab_list:
+        # `automatch_phab` may set register 8 to its generic value: write the calibration again
         radiant.labc.update(lab)
 
     radiant.labc.testpattern_mode(False)
