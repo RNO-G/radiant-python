@@ -95,22 +95,24 @@ def lab4_setup(radiant, labs=None, pedestals=True):
     ----------
     labs: list of int, optional (Default: None)
         If given, only initialize these LABs (e.g., to heat up the RADIANT with limited power).
-        All other LABs stay cleared. The calibration is not reloaded (uses the one in memory)
-        and no pedestals are taken: the board is not ready for data taking.
+        All other LABs stay cleared and no pedestals are taken: the board is not ready
+        for data taking.
     pedestals: bool, optional (Default: True)
         Take pedestals at the end (only if `labs` is None).
     """
     radiant.labc.stop()
     radiant.dma.reset()
+
+    # Reload the calibration: `default()` writes it to the LABs. `load()` writes it
+    # to all LABs, hence before `reg_clr()`.
+    radiant.calib.resetCalib()
+    radiant.calib.load(radiant.uid())
+
     radiant.labc.reg_clr()
 
     if labs is None:
         radiant.labc.default(radiant.labc.labAll)
         radiant.labc.automatch_phab(radiant.labc.labAll)
-
-        radiant.calib.resetCalib()
-        uid = radiant.uid()
-        radiant.calib.load(uid)
     else:
         for lab in labs:
             radiant.labc.default(lab)
