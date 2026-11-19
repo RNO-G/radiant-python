@@ -111,19 +111,15 @@ def lab4_setup(radiant, labs=None, pedestals=True):
 
     radiant.labc.reg_clr()
 
-    lab_list = [radiant.labc.labAll] if labs is None else labs
+    lab_list = range(radiant.labc.numLabs) if labs is None else labs
     for lab in lab_list:
         radiant.labc.default(lab)
     for lab in lab_list:
         radiant.labc.automatch_phab(lab)
 
     # `automatch_phab` may set register 8 to its generic value: write the calibration again
-    if labs is None:
-        radiant.calib.resetCalib()
-        radiant.calib.load(radiant.uid())
-    else:
-        for lab in labs:
-            radiant.labc.update(lab)
+    for lab in lab_list:
+        radiant.labc.update(lab)
 
     radiant.labc.testpattern_mode(False)
 
