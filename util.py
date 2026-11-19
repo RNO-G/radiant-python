@@ -50,7 +50,7 @@ def reset(radiant):
     time.sleep(1)
 
 
-def _analog_setup(radiant):
+def analog_setup(radiant):
     # From radiant-python/example/analog_setup.py
 
     # enable LAB4 + trigger and set LED red
@@ -71,36 +71,45 @@ def _analog_setup(radiant):
         radiant.atten(ch, 0, trigger=True)
 
 
-def setup_radiant(station, version=3):
-    station.radiant_board.logger.info("Start setup radiant!")
+def program_cplds(radiant, version=3):
+    """ Program the left and right aux CPLDs via JTAG. """
     cpld_fw = pathlib.Path(__file__).parent / 'data' / f'radiant_aux_v{version}.bit'
 
-    for cpld in [station.radiant_board.cpl, station.radiant_board.cpr]:
-        p1 = Process(target=cpld.configure, args=(cpld_fw,))
+    for name, cpld in [("left", radiant.cpl), ("right", radiant.cpr)]:
+        p = Process(target=cpld.configure, args=(cpld_fw,))
 
-        p1.start()
-        p1.join(timeout=10)
-        p1.terminate()
+        p.start()
+        p.join(timeout=10)
+        p.terminate()
 
-        if p1.exitcode is None:
-            station.radiant_board.logger.error(f"Programming of the CPLDs timed out.")
+        if p.exitcode is None:
+            radiant.logger.error(f"Programming of the {name} CPLD timed out.")
             raise TimeoutError()
 
-    _analog_setup(station.radiant_board)
 
-    station.radiant_board.labc.stop()
-    station.radiant_board.dma.reset()
-    station.radiant_board.labc.reg_clr()
+def lab4_setup(radiant):
+    """ Initialize the LAB4Ds (defaults, phase matching, calibration) and take pedestals. """
+    radiant.labc.stop()
+    radiant.dma.reset()
+    radiant.labc.reg_clr()
 
-    station.radiant_board.labc.default(station.radiant_board.labc.labAll)
-    station.radiant_board.labc.automatch_phab(station.radiant_board.labc.labAll)
+    radiant.labc.default(radiant.labc.labAll)
+    radiant.labc.automatch_phab(radiant.labc.labAll)
 
-    station.radiant_board.calib.resetCalib()
-    uid = station.radiant_board.uid()
-    station.radiant_board.calib.load(uid)
+    radiant.calib.resetCalib()
+    uid = radiant.uid()
+    radiant.calib.load(uid)
 
-    station.radiant_board.labc.testpattern_mode(False)
+    radiant.labc.testpattern_mode(False)
 
-    station.radiant_board.calram.zero()
-    station.radiant_board.calram.mode(station.radiant_board.calram.CalMode.NONE)
-    station.radiant_board.calib.updatePedestals()
+    radiant.calram.zero()
+    radiant.calram.mode(radiant.calram.CalMode.NONE)
+    radiant.calib.updatePedestals()
+
+
+def setup_radiant(station, version=3):
+    radiant = station.radiant_board
+    radiant.logger.info("Start setup radiant!")
+    program_cplds(radiant, version)
+    analog_setup(radiant)
+    lab4_setup(radiant)
