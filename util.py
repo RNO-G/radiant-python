@@ -139,9 +139,10 @@ def lab4_setup(radiant, labs=None, pedestals=True):
         radiant.calib.updatePedestals()
 
 
-def setup_radiant(station, version=3):
+def setup_radiant(station, version=3, labs=None):
+    """ Full RADIANT setup. With `labs`, only these LAB4Ds are set up (see `lab4_setup`). """
     radiant = station.radiant_board
     radiant.logger.info("Start setup radiant!")
     program_cplds(radiant, version)
     analog_setup(radiant)
-    lab4_setup(radiant)
+    lab4_setup(radiant, labs=labs)
