@@ -75,8 +75,8 @@ class RadCalib:
         with open(namestr, "w") as f:
             json.dump(calib, f)
 
-    # Load our calibration.
-    def load(self, uid):
+    # Load our calibration. With update_labs=False, only into memory (no LAB writes).
+    def load(self, uid, update_labs=True):
         namestr = path.join(self.calibPath, f"cal_{uid:032x}.json")
         self.logger.info(f"Load calibration: {namestr}")
 
@@ -98,6 +98,9 @@ class RadCalib:
         else:
             self.logger.warning(f"File {namestr} not found: using defaults")
             self.resetCalib()
+
+        if not update_labs:
+            return
 
         if self.dev.labc is not None:
             self.logger.info("Update Lab4Ds ...")

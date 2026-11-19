@@ -103,13 +103,11 @@ def lab4_setup(radiant, labs=None, pedestals=True):
     radiant.labc.stop()
     radiant.dma.reset()
 
-    # `default()` writes the calibration in memory to the LABs (empty after the RADIANT
-    # object was (re)created): load it from file. `load()` writes it to all LABs, hence
-    # before `reg_clr()`.
-    radiant.calib.resetCalib()
-    radiant.calib.load(radiant.uid())
-
     radiant.labc.reg_clr()
+
+    # `default()` and `update()` write the calibration in memory (empty after the RADIANT
+    # object was (re)created) to the LABs: load it from file, without writing all LABs.
+    radiant.calib.load(radiant.uid(), update_labs=False)
 
     lab_list = range(radiant.labc.numLabs) if labs is None else labs
     for lab in lab_list:
