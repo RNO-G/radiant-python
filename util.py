@@ -100,6 +100,9 @@ def lab4_setup(radiant, labs=None, pedestals=True):
     pedestals: bool, optional (Default: True)
         Take pedestals at the end (only if `labs` is None).
     """
+    if labs is not None and not all(0 <= lab < radiant.labc.numLabs for lab in labs):
+        raise ValueError(f"Invalid LAB indices {labs}: only 0 - {radiant.labc.numLabs - 1} are allowed.")
+
     radiant.labc.stop()
     radiant.dma.reset()
 
