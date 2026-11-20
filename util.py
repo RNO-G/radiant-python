@@ -50,7 +50,7 @@ def reset(radiant):
     time.sleep(1)
 
 
-def _analog_setup(radiant):
+def analog_setup(radiant):
     # From radiant-python/example/analog_setup.py
 
     # enable LAB4 + trigger and set LED red
@@ -71,36 +71,77 @@ def _analog_setup(radiant):
         radiant.atten(ch, 0, trigger=True)
 
 
-def setup_radiant(station, version=3):
-    station.radiant_board.logger.info("Start setup radiant!")
+def program_cplds(radiant, version=3):
+    """ Program the left and right aux CPLDs via JTAG. """
     cpld_fw = pathlib.Path(__file__).parent / 'data' / f'radiant_aux_v{version}.bit'
 
-    for cpld in [station.radiant_board.cpl, station.radiant_board.cpr]:
-        p1 = Process(target=cpld.configure, args=(cpld_fw,))
+    for name, cpld in [("left", radiant.cpl), ("right", radiant.cpr)]:
+        p = Process(target=cpld.configure, args=(cpld_fw,))
 
-        p1.start()
-        p1.join(timeout=10)
-        p1.terminate()
+        p.start()
+        p.join(timeout=10)
+        p.terminate()
 
-        if p1.exitcode is None:
-            station.radiant_board.logger.error(f"Programming of the CPLDs timed out.")
+        if p.exitcode is None:
+            radiant.logger.error(f"Programming of the {name} CPLD timed out.")
             raise TimeoutError()
 
-    _analog_setup(station.radiant_board)
 
-    station.radiant_board.labc.stop()
-    station.radiant_board.dma.reset()
-    station.radiant_board.labc.reg_clr()
+def lab4_setup(radiant, labs=None, pedestals=True):
+    """
+    Initialize the LAB4Ds (defaults, phase matching, calibration) and take pedestals.
 
-    station.radiant_board.labc.default(station.radiant_board.labc.labAll)
-    station.radiant_board.labc.automatch_phab(station.radiant_board.labc.labAll)
+    Parameters
+    ----------
+    labs: list of int, optional (Default: None)
+        If given, only initialize these LABs (e.g., to heat up the RADIANT with limited power).
+        All other LABs stay cleared and get zero pedestals.
+    pedestals: bool, optional (Default: True)
+        Take pedestals at the end.
+    """
+    if labs is not None:
+        labs = list(labs)
+        if not labs or not all(
+                isinstance(lab, int) and 0 <= lab < radiant.labc.numLabs for lab in labs):
+            raise ValueError(f"Invalid LAB indices {labs}: give at least one integer "
+                             f"0 - {radiant.labc.numLabs - 1}.")
 
-    station.radiant_board.calib.resetCalib()
-    uid = station.radiant_board.uid()
-    station.radiant_board.calib.load(uid)
+    radiant.labc.stop()
+    radiant.dma.reset()
 
-    station.radiant_board.labc.testpattern_mode(False)
+    radiant.labc.reg_clr()
 
-    station.radiant_board.calram.zero()
-    station.radiant_board.calram.mode(station.radiant_board.calram.CalMode.NONE)
-    station.radiant_board.calib.updatePedestals()
+    # `default()` and `update()` write the calibration in memory (empty after the RADIANT
+    # object was (re)created) to the LABs: load it from file, without writing all LABs.
+    radiant.calib.load(radiant.uid(), update_labs=False)
+
+    lab_list = range(radiant.labc.numLabs) if labs is None else labs
+
+    # Separate loops: kickstart all DLLs first (in `default()`) so they have time to settle
+    # before `automatch_phab` checks the delay lines (as in `tune.py`).
+    for lab in lab_list:
+        radiant.labc.default(lab)
+
+    # One call for all LABs: scans for the SYNC edge only once
+    radiant.labc.automatch_phab(lab_list)
+
+    # `automatch_phab` may set register 8 to its generic value: write the calibration again
+    for lab in lab_list:
+        radiant.labc.update(lab)
+
+    radiant.labc.testpattern_mode(False)
+
+    radiant.calram.zero()
+    radiant.calram.mode(radiant.calram.CalMode.NONE)
+
+    if pedestals:
+        radiant.calib.updatePedestals(labs=labs)
+
+
+def setup_radiant(station, version=3, labs=None, pedestals=True):
+    """ Full RADIANT setup. `labs` and `pedestals`: see `lab4_setup`. """
+    radiant = station.radiant_board
+    radiant.logger.info("Start setup radiant!")
+    program_cplds(radiant, version)
+    analog_setup(radiant)
+    lab4_setup(radiant, labs=labs, pedestals=pedestals)

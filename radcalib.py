@@ -75,8 +75,8 @@ class RadCalib:
         with open(namestr, "w") as f:
             json.dump(calib, f)
 
-    # Load our calibration.
-    def load(self, uid):
+    # Load our calibration. With update_labs=False, only into memory (no LAB writes).
+    def load(self, uid, update_labs=True):
         namestr = path.join(self.calibPath, f"cal_{uid:032x}.json")
         self.logger.info(f"Load calibration: {namestr}")
 
@@ -99,6 +99,9 @@ class RadCalib:
             self.logger.warning(f"File {namestr} not found: using defaults")
             self.resetCalib()
 
+        if not update_labs:
+            return
+
         if self.dev.labc is not None:
             self.logger.info("Update Lab4Ds ...")
             for lab in range(self.numLabs):
@@ -120,8 +123,8 @@ class RadCalib:
         self.calib['specifics'][lab] = self.generic.copy()
 
     # Updates pedestals, both locally
-    # *and* in the CALRAM.
-    def updatePedestals(self):
+    # *and* in the CALRAM. With `labs`, the pedestals of all other LABs are set to 0.
+    def updatePedestals(self, labs=None):
         self.logger.info("Updating pedestals...")
         self.dev.labc.stop()
         self.dev.calram.zero()
@@ -145,6 +148,10 @@ class RadCalib:
         rawped = np.frombuffer(bytearray(self.dev.dma.dmaread(4096*4*self.numLabs)),dtype=np.uint32)
         rawped = rawped / 512
         self.calib['pedestals'] = rawped.reshape(24, 4096)
+        if labs is not None:
+            others = np.ones(self.numLabs, dtype=bool)
+            others[list(labs)] = False
+            self.calib['pedestals'][others] = 0
         self.logger.info("Update complete")
 
     def getPedestals(self, asList=False):

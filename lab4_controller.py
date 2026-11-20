@@ -128,9 +128,13 @@ class LAB4_Controller:
         # invertSync allows for dealing with WR mismatches caused
         # by shift delays (for instance, shoving WR forward 2 sysclks
         # to compensate for an external delay)
+        # `lab`: a LAB index, `labAll`, or a list of LAB indices (the SYNC edge is scanned once).
         def automatch_phab(self, lab, match=1):
 
-            labs = range(self.numLabs) if lab == self.labAll else [lab]
+            if isinstance(lab, int):
+                labs = range(self.numLabs) if lab == self.labAll else [lab]
+            else:
+                labs = list(lab)
 
             # Find our start point. SYNC is always scan #12
             sync_edge = self.scan_edge(12, 1)
