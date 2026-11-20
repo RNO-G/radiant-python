@@ -123,8 +123,8 @@ class RadCalib:
         self.calib['specifics'][lab] = self.generic.copy()
 
     # Updates pedestals, both locally
-    # *and* in the CALRAM.
-    def updatePedestals(self):
+    # *and* in the CALRAM. With `labs`, the pedestals of all other LABs are set to 0.
+    def updatePedestals(self, labs=None):
         self.logger.info("Updating pedestals...")
         self.dev.labc.stop()
         self.dev.calram.zero()
@@ -148,6 +148,10 @@ class RadCalib:
         rawped = np.frombuffer(bytearray(self.dev.dma.dmaread(4096*4*self.numLabs)),dtype=np.uint32)
         rawped = rawped / 512
         self.calib['pedestals'] = rawped.reshape(24, 4096)
+        if labs is not None:
+            others = np.ones(self.numLabs, dtype=bool)
+            others[list(labs)] = False
+            self.calib['pedestals'][others] = 0
         self.logger.info("Update complete")
 
     def getPedestals(self, asList=False):

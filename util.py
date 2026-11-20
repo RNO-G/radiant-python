@@ -95,10 +95,9 @@ def lab4_setup(radiant, labs=None, pedestals=True):
     ----------
     labs: list of int, optional (Default: None)
         If given, only initialize these LABs (e.g., to heat up the RADIANT with limited power).
-        All other LABs stay cleared and no pedestals are taken: the board is not ready
-        for data taking.
+        All other LABs stay cleared and get zero pedestals.
     pedestals: bool, optional (Default: True)
-        Take pedestals at the end (only if `labs` is None).
+        Take pedestals at the end.
     """
     if labs is not None:
         labs = list(labs)
@@ -135,8 +134,8 @@ def lab4_setup(radiant, labs=None, pedestals=True):
     radiant.calram.zero()
     radiant.calram.mode(radiant.calram.CalMode.NONE)
 
-    if pedestals and labs is None:
-        radiant.calib.updatePedestals()
+    if pedestals:
+        radiant.calib.updatePedestals(labs=labs)
 
 
 def setup_radiant(station, version=3, labs=None):
